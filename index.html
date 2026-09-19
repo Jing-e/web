@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="成都文旅探索网站：一座来了就不想走的城市。景点推荐、蓉城风物、留言板与心愿单。">
+  <title>蓉城印象 · 成都文旅探索</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ============ 页头 / 导航 ============ -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="#home">
+        <span class="logo-mark">蓉</span>
+        <span class="logo-text">蓉城印象<small>成都文旅</small></span>
+      </a>
+
+      <button class="nav-toggle" id="navToggle" aria-label="展开导航" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+
+      <nav class="site-nav" id="siteNav" aria-label="主导航">
+        <ul class="nav-links">
+          <li><a href="#home" class="nav-link active">首页</a></li>
+          <li><a href="#attractions" class="nav-link">景点推荐</a></li>
+          <li><a href="#culture" class="nav-link">蓉城风物</a></li>
+          <li><a href="#guestbook" class="nav-link">留言板</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============ 首页轮播图 ============ -->
+    <section class="hero" id="home" aria-label="首页轮播">
+      <div class="carousel" id="carousel">
+        <div class="carousel-track" id="carouselTrack">
+
+          <figure class="carousel-slide">
+            <img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1600&q=80" alt="巍峨雪山下的成都城市夜景">
+            <figcaption class="carousel-caption">
+              <span class="carousel-kicker">天府之国 · 雪山下的公园城市</span>
+              <h2 class="carousel-title">雪山下的公园城市</h2>
+              <p class="carousel-desc">推开窗是千年雪山，走出门是烟火人间。</p>
+              <a href="#attractions" class="btn btn-primary">开始探索</a>
+            </figcaption>
+          </figure>
+
+          <figure class="carousel-slide">
+            <img src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1600&q=80" alt="都江堰青城山的高山湖泊与葱郁山林">
+            <figcaption class="carousel-caption">
+              <span class="carousel-kicker">山水天府 · 都江堰 · 青城山</span>
+              <h2 class="carousel-title">山水之间的千年智慧</h2>
+              <p class="carousel-desc">都江堰泽被千里，青城山幽甲天下。</p>
+              <a href="#attractions" class="btn btn-primary">查看景点</a>
+            </figcaption>
+          </figure>
+
+          <figure class="carousel-slide">
+            <img src="https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1600&q=80" alt="现代成都都市天际线与林立高楼">
+            <figcaption class="carousel-caption">
+              <span class="carousel-kicker">现代都市 · 春熙路 · 太古里</span>
+              <h2 class="carousel-title">传统与摩登的交汇</h2>
+              <p class="carousel-desc">川西院落与玻璃幕墙，在一条街上相映成趣。</p>
+              <a href="#culture" class="btn btn-primary">感受蓉城风物</a>
+            </figcaption>
+          </figure>
+
+          <figure class="carousel-slide">
+            <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1600&q=80" alt="成都美食，麻辣鲜香的川菜盛宴">
+            <figcaption class="carousel-caption">
+              <span class="carousel-kicker">舌尖成都 · 火锅 · 川菜</span>
+              <h2 class="carousel-title">麻辣鲜香，人间至味</h2>
+              <p class="carousel-desc">一顿火锅，读懂一座城的热情。</p>
+              <a href="#attractions" class="btn btn-primary">品味美食</a>
+            </figcaption>
+          </figure>
+
+        </div>
+
+        <button class="carousel-arrow prev" id="carouselPrev" aria-label="上一张">‹</button>
+        <button class="carousel-arrow next" id="carouselNext" aria-label="下一张">›</button>
+        <div class="carousel-dots" id="carouselDots" role="tablist" aria-label="轮播指示"></div>
+      </div>
+    </section>
+
+    <!-- ============ 景点推荐（分类筛选） ============ -->
+    <section class="attractions section" id="attractions">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="section-eyebrow">ATTRACTIONS</span>
+          <h2 class="section-title">热门景点推荐</h2>
+          <p class="section-sub">一座来了就不想走的城市，从这些地方开始。</p>
+        </div>
+
+        <div class="filter-bar reveal" id="filterBar" role="group" aria-label="景点分类筛选">
+          <button class="filter-btn active" data-filter="all">全部</button>
+          <button class="filter-btn" data-filter="nature">自然风光</button>
+          <button class="filter-btn" data-filter="history">历史文化</button>
+          <button class="filter-btn" data-filter="landmark">城市地标</button>
+          <button class="filter-btn" data-filter="food">美食打卡</button>
+        </div>
+
+        <div class="cards-grid" id="cardsGrid"><!-- 景点卡片由 JS 动态渲染 --></div>
+      </div>
+    </section>
+
+    <!-- ============ 蓉城风物（美食 · 非遗） ============ -->
+    <section class="culture section" id="culture">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="section-eyebrow">CULTURE</span>
+          <h2 class="section-title">蓉城风物 · 美食与非遗</h2>
+          <p class="section-sub">盖碗茶、变脸、蜀绣…… 成都的滋味与手艺，都值得慢慢品味。</p>
+        </div>
+
+        <div class="culture-grid">
+          <article class="culture-card reveal">
+            <div class="culture-card-img">
+              <img src="https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80" alt="成都盖碗茶，市井慢生活">
+            </div>
+            <div class="culture-card-body">
+              <h3>盖碗茶 · 市井慢生活</h3>
+              <p>一把竹椅、一盏盖碗，在人民公园的老茶馆里坐一下午，才是成都人的正经事。</p>
+            </div>
+          </article>
+
+          <article class="culture-card reveal">
+            <div class="culture-card-img">
+              <img src="https://images.unsplash.com/photo-1524169358666-79f22534bc6e?auto=format&fit=crop&w=800&q=80" alt="川剧变脸，蜀地非物质文化遗产">
+            </div>
+            <div class="culture-card-body">
+              <h3>川剧 · 变脸绝活</h3>
+              <p>抬手之间脸谱流转，川剧变脸与吐火，是蜀地最惊艳的舞台绝技。</p>
+            </div>
+          </article>
+
+          <article class="culture-card reveal">
+            <div class="culture-card-img">
+              <img src="https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?auto=format&fit=crop&w=800&q=80" alt="蜀绣，指尖上的针法艺术">
+            </div>
+            <div class="culture-card-body">
+              <h3>蜀绣 · 指尖上的针法</h3>
+              <p>针脚细密、色彩富丽，蜀绣以「平齐光亮」闻名，是丝绸之路上的一抹亮色。</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 留言板 & 心愿单 ============ -->
+    <section class="guestbook section" id="guestbook">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="section-eyebrow">GUESTBOOK</span>
+          <h2 class="section-title">留言板 · 心愿单</h2>
+          <p class="section-sub">写下你的成都印象，收藏下一站想去的地方。</p>
+        </div>
+
+        <div class="guestbook-card reveal">
+        <div class="guestbook-grid">
+          <!-- 留言板 -->
+          <div class="guestbook-form-panel">
+            <h3 class="panel-title">留下你的成都故事</h3>
+            <form class="message-form" id="messageForm" novalidate>
+              <div class="form-field">
+                <label for="msgName">昵称</label>
+                <input type="text" id="msgName" name="name" maxlength="16" placeholder="怎么称呼你？" required>
+              </div>
+              <div class="form-field">
+                <label for="msgContent">留言内容</label>
+                <textarea id="msgContent" name="content" rows="4" maxlength="200" placeholder="分享你的旅行体验或美食推荐……" required></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary btn-block">发布留言</button>
+            </form>
+
+            <ul class="message-list" id="messageList"><!-- 留言由 JS 渲染 --></ul>
+          </div>
+
+          <!-- 心愿单 -->
+          <aside class="wishlist-panel">
+            <h3 class="panel-title">我的心愿单 <span class="wish-count" id="wishCount">0</span></h3>
+            <p class="wish-empty" id="wishEmpty">还没有收藏景点，点击卡片右上角的 ♡ 收藏吧～</p>
+            <ul class="wishlist-list" id="wishlistList"></ul>
+          </aside>
+        </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ 页脚（三列 · 深墨绿） ============ -->
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <!-- ① 左：品牌 Logo + 文化寄语 -->
+      <div class="footer-col footer-brand">
+        <a class="logo" href="#home">
+          <span class="logo-mark">蓉</span>
+          <span class="logo-text">蓉城印象<small>成都文旅</small></span>
+        </a>
+        <p class="footer-slogan">一座来了就不想走的城市。品一盏盖碗茶，听一曲川剧，逛一逛宽窄巷子，在成都的山水与烟火里，慢慢生活。</p>
+      </div>
+
+      <!-- ② 中：站内锚点快捷导航 -->
+      <div class="footer-col">
+        <h4 class="footer-col-title">站内导航</h4>
+        <ul class="footer-links">
+          <li><a href="#home">首页</a></li>
+          <li><a href="#attractions">景点推荐</a></li>
+          <li><a href="#culture">蓉城风物</a></li>
+          <li><a href="#guestbook">留言板</a></li>
+        </ul>
+      </div>
+
+      <!-- ③ 右：版权 / 作业声明 / 仓库链接 -->
+      <div class="footer-col">
+        <h4 class="footer-col-title">关于本站</h4>
+        <p class="footer-copy">© 2026 蓉城印象 · web课程作业 · 仅用于学习演示</p>
+        <div class="footer-repo">
+          <!-- TODO：替换为你的真实仓库地址 -->
+          <a href="https://gitee.com/你的用户名/chengdu-travel" target="_blank" rel="noopener">Gitee 仓库</a>
+          <a href="https://github.com/你的用户名/chengdu-travel" target="_blank" rel="noopener">GitHub 仓库</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============ 模态弹窗 ============ -->
+  <div class="modal" id="modal" aria-hidden="true">
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="modal-close" id="modalClose" aria-label="关闭详情">×</button>
+      <img class="modal-img" id="modalImg" src="" alt="">
+      <div class="modal-body">
+        <span class="modal-category" id="modalCategory"></span>
+        <h3 class="modal-title" id="modalTitle"></h3>
+        <p class="modal-rating" id="modalRating"></p>
+        <p class="modal-desc" id="modalDesc"></p>
+        <div class="modal-tags" id="modalTags"></div>
+        <button class="btn btn-primary" id="modalWish">♡ 加入心愿单</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="back-to-top" id="backToTop" aria-label="回到顶部">↑</button>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

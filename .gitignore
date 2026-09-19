@@ -1,0 +1,10 @@
+# 系统与编辑器临时文件
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# 日志
+*.log
+
+# 工具配置（Claude Code 等），不纳入作业提交
+.claude/
