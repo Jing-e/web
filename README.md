@@ -1,12 +1,12 @@
 # 蓉城印象 · 成都文旅探索网站
 
-> web课程作业 · 原生 HTML5 + CSS3 + JavaScript (ES6+) 实现的文旅探索网站，纯静态结构，可一键部署到 Gitee Pages。
+> web课程作业 · 原生 HTML5 + CSS3 + JavaScript (ES6+) 实现的文旅探索网站，纯静态结构，可部署到任意静态托管平台。
 
 一座来了就不想走的城市 —— 从景点推荐、蓉城风物，到留言板与心愿单，探索成都的山水、历史与烟火。
 
 ## 在线预览
 
-- **Gitee Pages**：`https://zeng-jing0306.gitee.io/web/`（部署方式见下文）
+- **在线网址**：部署后填写（部署方式见下文）
 - **本地预览**：直接双击 `index.html`，或用本地服务器 `python -m http.server` 后访问 `http://localhost:8000`
 
 ## 技术栈
@@ -17,7 +17,7 @@
 | 样式 | CSS3 | CSS 变量、Flexbox、Grid、`@media (max-width: 768px)` 响应式 |
 | 交互 | 原生 JavaScript (ES6+) | 无任何框架依赖，零构建 |
 | 存储 | `localStorage` | 留言板、心愿单数据持久化 |
-| 部署 | Gitee Pages | 纯静态，无需服务器 |
+| 部署 | 静态托管（EdgeOne Pages / GitHub Pages） | 纯静态，无需服务器 |
 
 ## 功能一览
 
@@ -76,22 +76,37 @@ git commit -m "feat: 完成成都文旅探索网站全部功能"
 > 若答辩需要体现「分步开发轨迹」，可在实际开发过程中按以下节奏逐次提交：
 > `feat(structure): 初始化项目目录与语义化页面骨架` → `feat(carousel): 实现首页自动/手动轮播图组件` → `feat(filter): 实现景点卡片分类筛选与模态详情弹窗` → `feat(storage): 实现留言板与心愿单 localStorage 持久化` → `feat(responsive): 响应式适配与视觉优化`
 
-## 部署到 Gitee Pages
+## 部署与在线访问
 
-1. **新建仓库**：登录 [Gitee](https://gitee.com)，点击右上角「+」→「新建仓库」，仓库名如 `chengdu-travel`，设为「公开」。
-2. **上传代码**：
-   ```bash
-   git remote add origin https://gitee.com/<用户名>/chengdu-travel.git
-   git push -u origin master
-   ```
-   （也可在网页端「上传文件」直接把本地文件拖入仓库。）
-3. **开启 Pages**：进入仓库 →「服务」→「Gitee Pages」→ 部署分支选 `master`、目录选「根目录」→ 点击「启动」。
-4. **访问地址**：启动成功后生成 `https://<用户名>.gitee.io/chengdu-travel/`，即可在线访问。
+> ⚠️ **Gitee Pages 已于 2025 年停止服务**，Gitee 仓库仅用于代码托管与版本控制，不再提供 Pages 静态托管。
 
-> **备选方案**（Gitee Pages 需实名认证或审核受限时）：
-> - **GitHub Pages**：同样方式推到 GitHub，在 Settings → Pages 开启，得到 `https://<用户名>.github.io/<仓库名>/`；
-> - **Vercel / Netlify**：导入 Git 仓库或直接拖入项目文件夹，自动生成 `https://xxx.vercel.app`；
-> - **本地演示**：直接把整个文件夹拷贝到 U 盘 / 教室电脑，双击 `index.html` 即可演示（无需联网部署）。
+### 仓库地址（作业提交用）
+
+- **Gitee 仓库**：`https://gitee.com/zeng-jing0306/web`
+
+### 在线访问（静态托管）
+
+本项目为纯静态站点，可部署到任意静态托管平台：
+
+**方案一：腾讯云 EdgeOne Pages（国内访问快，推荐）**
+
+1. 注册 [腾讯云](https://cloud.tencent.com) 并完成实名认证；
+2. 进入 EdgeOne Pages 控制台，新建项目；
+3. 选择「直接上传」本项目文件夹（或从 Git 仓库导入）；
+4. 部署完成后获得 `https://xxx.edgeone.app` 形式的访问地址。
+
+**方案二：GitHub Pages（免费，无需新账号）**
+
+```bash
+git remote add github https://github.com/<用户名>/web.git
+git push github master
+```
+
+推送后在仓库 **Settings → Pages** 中选择分支并保存，得到 `https://<用户名>.github.io/web/`。
+
+**方案三：本地演示**
+
+直接把整个文件夹拷贝到 U 盘 / 教室电脑，双击 `index.html` 即可演示，无需联网。
 
 ## 说明
 
