@@ -6,7 +6,7 @@
 
 ## 在线预览
 
-- **在线网址**：部署后填写（部署方式见下文）
+- **在线网址**：<https://jing-e.github.io/web/>
 - **本地预览**：直接双击 `index.html`，或用本地服务器 `python -m http.server` 后访问 `http://localhost:8000`
 
 ## 技术栈
@@ -80,33 +80,31 @@ git commit -m "feat: 完成成都文旅探索网站全部功能"
 
 > ⚠️ **Gitee Pages 已于 2025 年停止服务**，Gitee 仓库仅用于代码托管与版本控制，不再提供 Pages 静态托管。
 
-### 仓库地址（作业提交用）
+### 仓库地址
 
-- **Gitee 仓库**：`https://gitee.com/zeng-jing0306/web`
+- **Gitee 仓库（作业提交）**：`https://gitee.com/zeng-jing0306/web`
+- **GitHub 仓库（部署源）**：`https://github.com/Jing-e/web`
 
 ### 在线访问（静态托管）
 
-本项目为纯静态站点，可部署到任意静态托管平台：
+本项目为纯静态站点，已部署在 **GitHub Pages**，可随时访问：
 
-**方案一：腾讯云 EdgeOne Pages（国内访问快，推荐）**
+> **<https://jing-e.github.io/web/>**
+
+如需更换托管平台，可参考以下方案：
+
+**方案一：腾讯云 EdgeOne Pages（国内访问更快，可选升级）**
 
 1. 注册 [腾讯云](https://cloud.tencent.com) 并完成实名认证；
 2. 进入 EdgeOne Pages 控制台，新建项目；
-3. 选择「直接上传」本项目文件夹（或从 Git 仓库导入）；
+3. 从 GitHub 导入 `Jing-e/web` 仓库（或直接上传本项目文件夹）；
 4. 部署完成后获得 `https://xxx.edgeone.app` 形式的访问地址。
 
-**方案二：GitHub Pages（免费，无需新账号）**
+> 提示：`github.io` 在国内访问速度不稳定，若需现场演示，建议补部署 EdgeOne 作为国内访问入口。
 
-```bash
-git remote add github https://github.com/<用户名>/web.git
-git push github master
-```
+**方案二：本地演示（无需联网）**
 
-推送后在仓库 **Settings → Pages** 中选择分支并保存，得到 `https://<用户名>.github.io/web/`。
-
-**方案三：本地演示**
-
-直接把整个文件夹拷贝到 U 盘 / 教室电脑，双击 `index.html` 即可演示，无需联网。
+直接把整个文件夹拷贝到 U 盘 / 教室电脑，双击 `index.html` 即可演示。
 
 ## 说明
 
