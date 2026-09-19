@@ -6,7 +6,7 @@
 
 ## 在线预览
 
-- **Gitee Pages**：`https://<你的用户名>.gitee.io/<仓库名>/`（部署方式见下文）
+- **Gitee Pages**：`https://zeng-jing0306.gitee.io/web/`（部署方式见下文）
 - **本地预览**：直接双击 `index.html`，或用本地服务器 `python -m http.server` 后访问 `http://localhost:8000`
 
 ## 技术栈
