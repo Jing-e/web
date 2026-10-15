@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="寻宝大冒险：使用 async/await 重写的异步寻宝游戏，动画展示寻宝全过程。">
+  <title>寻宝大冒险 · 失落的星辰宝藏</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- 星空背景层 -->
+  <div class="stars" aria-hidden="true"></div>
+
+  <main class="container">
+    <header class="hero">
+      <h1 class="title">🏴‍☠️ 寻宝大冒险</h1>
+      <p class="subtitle">失落的星辰宝藏 · 一次 async/await 异步探险之旅</p>
+    </header>
+
+    <!-- 罗盘 + 进度 -->
+    <section class="stage-panel">
+      <div class="compass" id="compass" aria-hidden="true">🧭</div>
+      <div class="progress-track" aria-hidden="true">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <ol class="stages" id="stageList">
+        <!-- 阶段列表由 JS 根据 STAGES 配置渲染 -->
+      </ol>
+    </section>
+
+    <!-- 探险日志 -->
+    <section class="log" id="log" aria-live="polite" aria-label="寻宝日志"></section>
+
+    <!-- 结果展示 -->
+    <section class="result" id="result" hidden>
+      <div class="chest" id="chest" aria-hidden="true">🎁</div>
+      <h2 class="result-title" id="resultTitle"></h2>
+      <p class="result-text" id="resultText"></p>
+    </section>
+
+    <div class="actions">
+      <button id="startBtn" class="btn" type="button">⚓ 开始寻宝</button>
+    </div>
+
+    <footer class="footer">HTML / CSS / JavaScript · async/await 异步寻宝演示</footer>
+  </main>
+
+  <script src="js/treasure.js"></script>
+</body>
+</html>
