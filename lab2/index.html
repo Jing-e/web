@@ -3,23 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="寻宝大冒险：使用 async/await 重写的异步寻宝游戏，动画展示寻宝全过程。">
+  <meta name="description" content="寻宝大冒险：3A 级电影质感寻宝游戏，使用 async/await 重写异步寻宝全过程。">
   <title>寻宝大冒险 · 失落的星辰宝藏</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-  <!-- 星空背景层 -->
-  <div class="stars" aria-hidden="true"></div>
+  <!-- 背景场景层（跨章节交叉淡入淡出） -->
+  <div class="scene" id="sceneA" aria-hidden="true"></div>
+  <div class="scene" id="sceneB" aria-hidden="true"></div>
+
+  <!-- 电影级光影叠加层 -->
+  <div class="overlay overlay-vignette" aria-hidden="true"></div>
+  <div class="overlay overlay-rays" aria-hidden="true"></div>
+  <div class="overlay overlay-grain" aria-hidden="true"></div>
+
+  <!-- 漂浮粒子（金色尘埃 / 火光） -->
+  <div class="particles" id="particles" aria-hidden="true"></div>
+
+  <!-- 电影黑边 -->
+  <div class="letterbox letterbox--top" aria-hidden="true"></div>
+  <div class="letterbox letterbox--bottom" aria-hidden="true"></div>
 
   <main class="container">
     <header class="hero">
-      <h1 class="title">🏴‍☠️ 寻宝大冒险</h1>
+      <div class="hero-emblem" aria-hidden="true">✦</div>
+      <h1 class="title">寻宝大冒险</h1>
       <p class="subtitle">失落的星辰宝藏 · 一次 async/await 异步探险之旅</p>
     </header>
 
-    <!-- 罗盘 + 进度 -->
-    <section class="stage-panel">
+    <!-- 探险任务追踪器 -->
+    <section class="panel quest">
+      <header class="panel-head">
+        <span class="panel-head__diamond" aria-hidden="true"></span>
+        <span class="panel-head__title">探险进度</span>
+        <span class="panel-head__diamond" aria-hidden="true"></span>
+      </header>
       <div class="compass" id="compass" aria-hidden="true">🧭</div>
       <div class="progress-track" aria-hidden="true">
         <div class="progress-bar" id="progressBar"></div>
@@ -30,10 +49,10 @@
     </section>
 
     <!-- 探险日志 -->
-    <section class="log" id="log" aria-live="polite" aria-label="寻宝日志"></section>
+    <section class="panel log" id="log" aria-live="polite" aria-label="寻宝日志"></section>
 
     <!-- 结果展示 -->
-    <section class="result" id="result" hidden>
+    <section class="panel result" id="result" hidden>
       <div class="chest" id="chest" aria-hidden="true">🎁</div>
       <h2 class="result-title" id="resultTitle"></h2>
       <p class="result-text" id="resultText"></p>

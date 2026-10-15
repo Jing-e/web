@@ -4,6 +4,7 @@
    原 lab1 版本使用 Promise 链式调用（.then / .catch）完成寻宝，
    本作业将整个寻宝过程使用 async/await 重写，并新增更多有趣的
    寻宝情节：扬帆远航（随机风暴）、破解机关、躲避守卫等。
+   同时加入电影级场景切换与漂浮粒子，营造沉浸式探险氛围。
    ============================================================ */
 (function () {
   'use strict';
@@ -13,14 +14,22 @@
 
   /* ---------------- 阶段配置（驱动进度 UI 与故事顺序） ---------------- */
   const STAGES = [
-    { icon: '📜', name: '获取航海图' },
-    { icon: '🔍', name: '破译古文字' },
-    { icon: '⛵', name: '扬帆远航' },
-    { icon: '🧩', name: '破解机关' },
-    { icon: '🗡️', name: '躲避守卫' },
-    { icon: '🎁', name: '打开宝箱' },
-    { icon: '💰', name: '宝藏现身' },
+    { icon: '📜', name: '获取航海图', scene: 'ancient' },
+    { icon: '🔍', name: '破译古文字', scene: 'ancient' },
+    { icon: '⛵', name: '扬帆远航',   scene: 'voyage' },
+    { icon: '🧩', name: '破解机关',   scene: 'temple' },
+    { icon: '🗡️', name: '躲避守卫',   scene: 'temple' },
+    { icon: '🎁', name: '打开宝箱',   scene: 'treasure' },
+    { icon: '💰', name: '宝藏现身',   scene: 'treasure' },
   ];
+
+  /* ---------------- 背景场景（Pexels 免费图库） ---------------- */
+  const SCENES = {
+    ancient: 'linear-gradient(180deg, rgba(8,8,12,0.55) 0%, rgba(8,8,12,0.32) 42%, rgba(8,8,12,0.86) 100%), url("https://images.pexels.com/photos/35877708/pexels-photo-35877708.jpeg?auto=compress&cs=tinysrgb&w=1920") center/cover no-repeat',
+    voyage:  'linear-gradient(180deg, rgba(8,8,12,0.55) 0%, rgba(8,8,12,0.32) 42%, rgba(8,8,12,0.86) 100%), url("https://images.pexels.com/photos/28997724/pexels-photo-28997724.jpeg?auto=compress&cs=tinysrgb&w=1920") center/cover no-repeat',
+    temple:  'linear-gradient(180deg, rgba(6,6,9,0.62) 0%, rgba(6,6,9,0.4) 42%, rgba(6,6,9,0.9) 100%), url("https://images.pexels.com/photos/34350109/pexels-photo-34350109.jpeg?auto=compress&cs=tinysrgb&w=1920") center/cover no-repeat',
+    treasure: 'radial-gradient(circle at 50% 38%, #3d2c10 0%, #171007 55%, #0a0805 100%)',
+  };
 
   /* ---------------- 模拟宝藏地图 API（全部为 async 方法） ---------------- */
   class TreasureMap {
@@ -72,6 +81,9 @@
 
   /* ---------------- UI 元素 ---------------- */
   const els = {
+    sceneA: document.getElementById('sceneA'),
+    sceneB: document.getElementById('sceneB'),
+    particles: document.getElementById('particles'),
     stageList: document.getElementById('stageList'),
     progressBar: document.getElementById('progressBar'),
     log: document.getElementById('log'),
@@ -84,6 +96,35 @@
   };
 
   let currentStage = -1;
+  let sceneIndex = 0;
+  const sceneLayers = [els.sceneA, els.sceneB];
+
+  /* ---------------- 场景交叉淡入淡出 ---------------- */
+  function setScene(name) {
+    const scene = SCENES[name] || SCENES.ancient;
+    const incoming = sceneLayers[(sceneIndex + 1) % 2];
+    const outgoing = sceneLayers[sceneIndex];
+
+    incoming.style.background = scene;
+    incoming.classList.add('is-active');
+    outgoing.classList.remove('is-active');
+    sceneIndex = (sceneIndex + 1) % 2;
+  }
+
+  /* ---------------- 漂浮粒子生成 ---------------- */
+  function spawnParticles(count = 34) {
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('span');
+      p.className = 'particle';
+      const size = (Math.random() * 5 + 2).toFixed(1);
+      p.style.width = `${size}px`;
+      p.style.height = `${size}px`;
+      p.style.left = `${(Math.random() * 100).toFixed(2)}%`;
+      p.style.animationDuration = `${(Math.random() * 14 + 9).toFixed(1)}s`;
+      p.style.animationDelay = `${(Math.random() * 12).toFixed(1)}s`;
+      els.particles.appendChild(p);
+    }
+  }
 
   /* ---------------- 渲染阶段进度列表 ---------------- */
   function renderStages() {
@@ -160,48 +201,49 @@
     els.chest.textContent = '🎁';
     currentStage = -1;
     setButton(true);
+    setScene('ancient');
 
     try {
       await log('寻宝之旅正式开始!祝你好运，勇敢的探险家!', 'title', '🏴‍☠️');
 
       // 阶段 1：获取航海图
-      currentStage = 0; markStage('active'); setWorking(true);
+      currentStage = 0; markStage('active'); setScene(STAGES[0].scene); setWorking(true);
       const clue = await TreasureMap.getInitialClue();
       setWorking(false);
       await log(clue, 'ok', '📜'); markStage('done');
 
       // 阶段 2：破译古文字
-      currentStage = 1; markStage('active'); setWorking(true);
+      currentStage = 1; markStage('active'); setScene(STAGES[1].scene); setWorking(true);
       const location = await TreasureMap.decodeAncientScript(clue);
       setWorking(false);
       await log(location, 'ok', '🔍'); markStage('done');
 
       // 阶段 3：扬帆远航（随机风暴，可重试）
-      currentStage = 2; markStage('active'); setWorking(true);
+      currentStage = 2; markStage('active'); setScene(STAGES[2].scene); setWorking(true);
       const land = await withRetry(() => TreasureMap.sailTheSea(), '扬帆远航');
       setWorking(false);
       await log(land, 'ok', '⛵'); markStage('done');
 
       // 阶段 4：破解机关
-      currentStage = 3; markStage('active'); setWorking(true);
+      currentStage = 3; markStage('active'); setScene(STAGES[3].scene); setWorking(true);
       const door = await TreasureMap.solveMechanism();
       setWorking(false);
       await log(door, 'ok', '🧩'); markStage('done');
 
       // 阶段 5：躲避守卫（随机遭遇，可重试）
-      currentStage = 4; markStage('active'); setWorking(true);
+      currentStage = 4; markStage('active'); setScene(STAGES[4].scene); setWorking(true);
       const pass = await withRetry(() => TreasureMap.dodgeGuards(), '躲避守卫');
       setWorking(false);
       await log(pass, 'ok', '🗡️'); markStage('done');
 
       // 阶段 6：打开宝箱
-      currentStage = 5; markStage('active'); setWorking(true);
+      currentStage = 5; markStage('active'); setScene(STAGES[5].scene); setWorking(true);
       const box = await TreasureMap.openTreasureBox();
       setWorking(false);
       await log(box, 'ok', '🎁'); markStage('done');
 
       // 阶段 7：宝藏现身
-      currentStage = 6; markStage('active'); setWorking(true);
+      currentStage = 6; markStage('active'); setScene(STAGES[6].scene); setWorking(true);
       const treasure = await TreasureMap.revealTreasure();
       setWorking(false);
       await log(treasure, 'success', '💰'); markStage('done');
@@ -229,5 +271,7 @@
   /* ---------------- 事件绑定与初始化 ---------------- */
   els.startBtn.addEventListener('click', findTreasure);
 
+  setScene('ancient');
+  spawnParticles();
   renderStages();
 })();
