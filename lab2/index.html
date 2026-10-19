@@ -1,70 +1,1545 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="寻宝大冒险：3A 级电影质感寻宝游戏，使用 async/await 重写异步寻宝全过程。">
-  <title>寻宝大冒险 · 失落的星辰宝藏</title>
-  <link rel="stylesheet" href="css/style.css">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>寻宝奇旅</title>
+<meta name="description" content="多阶段寻宝冒险：获得藏宝图 → 解密古文 → 穿越黑暗森林 → 破解石门机关 → 躲避神庙守卫 → 打开宝箱。纯前端单文件，可部署 GitHub Pages 子路径。" />
+<style>
+/* ============================================================================
+   寻宝奇旅 —— 单文件寻宝游戏
+   ----------------------------------------------------------------------------
+   本文件完全自包含：CSS / JS 内联，无任何外部依赖（不依赖 CDN，杜绝白屏）。
+   · 素材：全部为手绘内联 SVG 与 CSS 几何图形，保证离线可开、像素级对齐。
+     如需替换为真实 3A 资产，见文件末尾「素材来源与协议」注释块。
+   · 路径：本页放在 GitHub Pages 项目子路径（/web/lab2/）下，
+     所有 src / href / import 一律使用相对路径（./ 或同文档 #id），
+     绝不以 "/" 开头，也绝不写死 /web/lab2/。
+   ============================================================================ */
+
+:root{
+  /* 深蓝黑底 + 金棕高亮 —— 暗黑探险配色 */
+  --bg-0:#070a14;
+  --bg-1:#0b1120;
+  --bg-2:#111a2e;
+  --panel:rgba(17,24,42,.72);
+  --panel-soft:rgba(20,28,48,.5);
+  --gold:#d4a94e;
+  --gold-hi:#f0cf7a;
+  --gold-dim:#8a6a3a;
+  --brown:#8a5a2b;
+  --ink:#5c4327;
+  --text:#e8e2d0;
+  --text-dim:#9aa3b5;
+  --safe:#6fce7a;
+  --danger:#e0684a;
+  --ring:rgba(212,169,78,.35);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1); /* 纯 CSS 轻微回弹（兜底/低权重） */
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+html,body{ height:100%; }
+
+body{
+  background:var(--bg-0);
+  color:var(--text);
+  font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+.hidden{ display:none !important; }
+
+/* ----------------------------------------------------------------------------
+   【渐进模糊 CSS 在哪里】
+   1) 底部静态幕布：#curtain 内的 4 个 .blur-layer 用 backdrop-filter 分层叠加，
+      每层用 mask-image: linear-gradient(...) 控制显示区间，形成「底部 HUD 上方
+      背景逐渐模糊、中部焦点清晰」的渐进效果，避免硬边。
+   2) 元素清晰化：.focal / 卡片 / 提示 由 JS 弹簧驱动 filter: blur() → 0。
+   -------------------------------------------------------------------------- */
+
+/* 场景内幕布：位于 scene-bg 之上、focal 之下，只模糊背景、不糊焦点 */
+.curtain{ position:absolute; inset:0; pointer-events:none; z-index:2; }
+.curtain .blur-layer{
+  position:absolute; inset:0;
+  will-change:backdrop-filter;
+  transform:translateZ(0);
+}
+/* 2px 层 —— 最上、最淡 */
+.blur-layer[data-blur="2"]{
+  -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+  -webkit-mask-image:linear-gradient(to top, transparent 0 52%, black 64%, transparent 78%);
+  mask-image:linear-gradient(to top, transparent 0 52%, black 64%, transparent 78%);
+}
+/* 6px 层 */
+.blur-layer[data-blur="6"]{
+  -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+  -webkit-mask-image:linear-gradient(to top, transparent 0 34%, black 46%, transparent 58%);
+  mask-image:linear-gradient(to top, transparent 0 34%, black 46%, transparent 58%);
+}
+/* 12px 层 */
+.blur-layer[data-blur="12"]{
+  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+  -webkit-mask-image:linear-gradient(to top, transparent 0 18%, black 30%, transparent 42%);
+  mask-image:linear-gradient(to top, transparent 0 18%, black 30%, transparent 42%);
+}
+/* 20px 层 —— 最下、最强（紧贴 HUD 上方） */
+.blur-layer[data-blur="20"]{
+  -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
+  -webkit-mask-image:linear-gradient(to top, black 0 8%, transparent 20%);
+  mask-image:linear-gradient(to top, black 0 8%, transparent 20%);
+}
+
+/* 元素做「从模糊到清晰」时：提升为独立合成层，避免闪烁 */
+.focal{
+  position:relative; z-index:3;
+  will-change:filter,opacity,transform;
+  transform:translateZ(0);
+}
+
+/* 转场幕布：镜头平移时一闪而过的整屏渐进模糊 */
+#veil{
+  position:fixed; inset:0; z-index:4; pointer-events:none;
+  background:rgba(7,10,20,.35);
+  -webkit-backdrop-filter:blur(0px); backdrop-filter:blur(0px);
+  opacity:0;
+  will-change:opacity,backdrop-filter;
+}
+
+/* ----------------------------------------------------------------------------
+   布局：镜头 → 轨道（6+1 个场景横向排列）→ 相机 translateX 平移
+   -------------------------------------------------------------------------- */
+#app{ position:fixed; inset:0; overflow:hidden; }
+
+#bg-glow{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(1200px 700px at 70% -10%, rgba(60,90,150,.18), transparent 60%),
+    radial-gradient(900px 600px at 12% 110%, rgba(150,110,40,.14), transparent 60%);
+}
+
+#camera{
+  position:absolute; top:0; left:0; height:100%;
+  will-change:transform;
+  z-index:1;
+}
+#track{ display:flex; height:100%; width:max-content; }
+
+.scene{
+  position:relative; width:100vw; height:100vh; flex:0 0 auto; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+}
+.scene-bg{ position:absolute; inset:0; z-index:1; overflow:hidden; }
+
+/* 顶部品牌栏与底部 HUD（固定于镜头之上、幕布之上） */
+#titlebar{
+  position:fixed; top:0; left:0; right:0; z-index:5;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 20px;
+  pointer-events:none;
+}
+#titlebar .brand{
+  font-family:Georgia,"Songti SC","SimSun",serif;
+  font-size:15px; letter-spacing:.16em; color:var(--gold);
+  display:flex; align-items:center; gap:8px;
+}
+#titlebar .brand svg{ width:18px; height:18px; }
+#stageName{ font-size:12px; color:var(--text-dim); letter-spacing:.12em; }
+
+#hud{
+  position:fixed; left:0; right:0; bottom:0; z-index:5;
+  padding:12px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+  pointer-events:none;
+}
+.hud-steps{
+  display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
+}
+.hud-step{
+  pointer-events:auto;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  min-width:64px; padding:8px 10px;
+  background:var(--panel-soft);
+  border:1px solid rgba(212,169,78,.16);
+  border-radius:12px;
+  color:var(--text-dim); cursor:default;
+  transition:border-color .3s, background .3s;
+}
+.hud-step svg{ width:20px; height:20px; }
+.hud-step span{ font-size:10px; letter-spacing:.04em; }
+.hud-step.active{
+  border-color:var(--ring); color:var(--gold-hi); background:rgba(212,169,78,.1);
+}
+.hud-step.done{ border-color:rgba(111,206,122,.4); color:var(--safe); }
+.hud-step.done .st-ico{ opacity:.9; }
+.hud-step.filled{ border-color:var(--gold); color:var(--gold-hi); }
+.hud-log{
+  text-align:center; margin-top:8px; font-size:12px; color:var(--text-dim);
+  min-height:16px; letter-spacing:.06em;
+}
+
+/* ----------------------------------------------------------------------------
+   卡片 / 按钮 / 提示
+   -------------------------------------------------------------------------- */
+.card{
+  background:var(--panel);
+  border:1px solid var(--ring);
+  border-radius:18px;
+  padding:28px 30px;
+  max-width:min(620px,92vw);
+  text-align:center;
+  box-shadow:0 30px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
+  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+}
+.card h2{
+  font-family:Georgia,"Songti SC","SimSun",serif;
+  font-size:26px; letter-spacing:.06em; color:var(--gold-hi);
+  margin-bottom:8px; font-weight:600;
+}
+.card p{ color:var(--text-dim); font-size:14px; line-height:1.7; }
+.hint{ margin:14px 0 4px; }
+.hint.strong{ color:var(--gold-hi); }
+
+.btn{
+  pointer-events:auto; cursor:pointer; user-select:none;
+  display:inline-flex; align-items:center; gap:8px; justify-content:center;
+  font-family:inherit; font-size:15px; letter-spacing:.08em;
+  padding:12px 26px; border-radius:12px;
+  border:1px solid transparent;
+  color:var(--text);
+  background:transparent;
+  will-change:transform;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn svg{ width:16px; height:16px; }
+.btn-gold{
+  background:linear-gradient(180deg,#e2b95a,#b98a2e);
+  color:#221a08; font-weight:600;
+  box-shadow:0 8px 22px rgba(201,162,39,.35);
+}
+.btn-gold:hover{ filter:brightness(1.05); }
+.btn-ghost{
+  border-color:var(--ring); color:var(--gold-hi);
+}
+.btn-ghost:hover{ background:rgba(212,169,78,.08); }
+.btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+/* 序章标题 */
+.title-card h1{
+  font-family:Georgia,"Songti SC","SimSun",serif;
+  font-size:clamp(34px,6vw,56px); letter-spacing:.1em; color:var(--gold-hi);
+  text-shadow:0 0 40px rgba(212,169,78,.35);
+  margin-bottom:12px;
+}
+.title-card .sub{ font-size:15px; }
+.title-card .btn{ margin-top:22px; }
+
+/* 星空背景 */
+.stars{
+  position:absolute; inset:0;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, #fff8, transparent 50%),
+    radial-gradient(1px 1px at 70% 22%, #fff6, transparent 50%),
+    radial-gradient(1.5px 1.5px at 45% 60%, #d4a94e88, transparent 50%),
+    radial-gradient(1px 1px at 82% 70%, #fff5, transparent 50%),
+    radial-gradient(1px 1px at 12% 78%, #fff7, transparent 50%),
+    radial-gradient(1.5px 1.5px at 58% 14%, #fff6, transparent 50%);
+  opacity:.6;
+}
+.compass{
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  width:min(60vmin,420px); height:min(60vmin,420px); opacity:.16;
+}
+
+/* 藏宝图碎片 */
+.map-grid{
+  display:grid; grid-template-columns:1fr 1fr;
+  width:min(360px,78vw); aspect-ratio:1/1; margin:18px auto 8px;
+  gap:0;
+  box-shadow:0 16px 50px rgba(0,0,0,.45);
+}
+.frag{
+  width:100%; height:100%; overflow:hidden; background:#d9c193;
+  will-change:transform;
+}
+.frag svg{ display:block; width:100%; height:100%; }
+
+/* 符文 */
+.runes{ display:flex; gap:14px; justify-content:center; margin:20px 0 8px; flex-wrap:wrap; }
+.rune{
+  pointer-events:auto; cursor:pointer;
+  width:60px; height:60px; border-radius:14px;
+  background:var(--panel-soft);
+  border:1px solid var(--ring);
+  color:var(--gold); display:grid; place-items:center;
+  will-change:transform,filter,box-shadow;
+  transition:box-shadow .2s, border-color .2s, color .2s;
+}
+.rune svg{ width:28px; height:28px; }
+.rune.lit{
+  color:var(--gold-hi); border-color:var(--gold-hi);
+  box-shadow:0 0 24px rgba(240,207,122,.7);
+}
+.rune.ok{ color:var(--safe); border-color:var(--safe); }
+.rune.shake{ animation:shake .4s; }
+@keyframes shake{
+  0%,100%{ transform:translateX(0); }
+  20%{ transform:translateX(-6px); } 40%{ transform:translateX(6px); }
+  60%{ transform:translateX(-4px); } 80%{ transform:translateX(4px); }
+}
+.decoded{
+  font-family:Georgia,"Songti SC","SimSun",serif;
+  font-size:20px; color:var(--gold-hi); letter-spacing:.12em; margin-top:6px;
+}
+
+/* 森林 */
+.forest-cam{
+  position:absolute; inset:0; transform-origin:50% 78%;
+  will-change:transform; transform:translateZ(0);
+}
+.forest-cam .layer{ position:absolute; inset:0; }
+.forest-cam .layer svg{ position:absolute; bottom:0; left:50%; transform:translateX(-50%); height:110%; width:110%; }
+.l3{ color:#1b2b2a; } .l2{ color:#14241f; } .l1{ color:#0d1b17; }
+.forest-fog{
+  position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(60% 40% at 50% 80%, rgba(180,200,210,.12), transparent 70%),
+    radial-gradient(50% 34% at 30% 60%, rgba(160,190,200,.08), transparent 70%);
+}
+.forest-glow{
+  position:absolute; left:50%; top:40%; transform:translate(-50%,-50%);
+  width:0; height:0; border-radius:50%;
+  background:radial-gradient(circle, rgba(240,207,122,.5), transparent 70%);
+  opacity:0; will-change:opacity,width,height;
+}
+
+/* 石门机关 */
+.discs{ display:flex; gap:18px; justify-content:center; margin:22px 0 8px; flex-wrap:wrap; }
+.disc{
+  pointer-events:auto; cursor:pointer;
+  width:88px; padding:6px 0 2px;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  border-radius:14px;
+}
+.disc:hover{ background:rgba(212,169,78,.06); }
+.disc svg{ width:72px; height:78px; }
+.disc .target-glyph{
+  width:22px; height:22px; color:var(--gold-hi);
+  opacity:.95;
+}
+.disc .disc-face{ transform-origin:36px 42px; will-change:transform; }
+
+/* 守卫 */
+.guard-track{
+  position:relative; width:min(420px,82vw); height:42px;
+  background:var(--panel-soft); border:1px solid var(--ring);
+  border-radius:21px; margin:22px auto 14px; overflow:hidden;
+}
+.guard-safe{
+  position:absolute; top:0; bottom:0; left:60%; width:18%;
+  background:rgba(111,206,122,.18);
+  border-left:1px dashed var(--safe); border-right:1px dashed var(--safe);
+}
+.guard-cursor{
+  position:absolute; top:4px; bottom:4px; left:0;
+  width:6px; border-radius:3px; background:var(--danger);
+  box-shadow:0 0 14px var(--danger);
+  will-change:left;
+}
+.guard-eye{
+  position:absolute; left:50%; top:16%;
+  width:14px; height:14px; border-radius:50%;
+  background:var(--danger); box-shadow:0 0 26px 8px rgba(224,104,74,.5);
+  animation:blink 3.4s infinite;
+}
+@keyframes blink{ 0%,78%,100%{ opacity:1; transform:scale(1);} 82%,90%{ opacity:.2; transform:scale(.6);} }
+
+/* 宝箱 */
+.chest{ position:relative; width:min(280px,74vw); margin:6px auto 10px; perspective:720px; }
+.chest-body{ display:block; width:100%; }
+.chest-lid{
+  position:absolute; top:-2px; left:0; width:100%;
+  transform-origin:50% 100%;
+  will-change:transform;
+  transform:translateZ(0);
+}
+.chest-lid svg{ display:block; width:100%; }
+.reward{
+  position:absolute; left:50%; top:14%; transform:translate(-50%,0) scale(.2);
+  opacity:0; will-change:transform,opacity,filter;
+  filter:blur(6px);
+}
+.reward svg{ width:64px; height:64px; }
+.chest-glow{
+  position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(50% 50% at 50% 40%, rgba(240,207,122,.5), transparent 70%);
+  opacity:0; will-change:opacity;
+}
+/* 3A 素材：Poly Haven CC0 贴图层（真实 CDN 直链，失败自动移除降级） */
+.tex{
+  position:absolute; inset:0; background-size:cover; background-position:center bottom;
+  filter:brightness(.5) saturate(.85) contrast(1.05);
+  opacity:0; transition:opacity 1.4s ease;
+  will-change:opacity;
+}
+/* 钥匙（嵌入锁孔用，像素级对齐到 .lock-marker） */
+.key{
+  position:absolute; left:50%; top:2%; width:60px;
+  transform:translate(-50%,-130%) rotate(-10deg);
+  z-index:3; will-change:transform,opacity,filter;
+}
+.key svg{ width:100%; height:auto; display:block; }
+.lock-marker{
+  position:absolute; left:50%; top:26%; width:22px; height:22px;
+  transform:translate(-50%,-50%); pointer-events:none;
+}
+
+/* 结束幕 */
+#overlay{
+  position:fixed; inset:0; z-index:20; display:grid; place-items:center;
+  background:rgba(5,7,14,.82);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+}
+.end-card{ text-align:center; }
+.end-card h2{
+  font-family:Georgia,"Songti SC","SimSun",serif;
+  font-size:38px; color:var(--gold-hi); letter-spacing:.08em; margin-bottom:12px;
+}
+.end-card p{ color:var(--text-dim); margin-bottom:22px; }
+
+/* toast */
+#toast{
+  position:fixed; left:50%; top:64px; z-index:15;
+  transform:translate(-50%,-12px) scale(.9);
+  background:var(--panel); border:1px solid var(--ring);
+  color:var(--gold-hi); padding:10px 20px; border-radius:999px;
+  font-size:13px; letter-spacing:.06em; opacity:0;
+  pointer-events:none; will-change:transform,opacity;
+}
+
+/* 响应式：桌面优先，小屏收缩 */
+@media (max-width:640px){
+  .card{ padding:20px 16px; }
+  .card h2{ font-size:22px; }
+  .hud-step{ min-width:50px; padding:6px 7px; }
+  .hud-step span{ font-size:9px; }
+  .runes{ gap:10px; } .rune{ width:52px; height:52px; }
+  .discs{ gap:10px; } .disc{ width:74px; }
+}
+
+/* ----------------------------------------------------------------------------
+   尊重 prefers-reduced-motion：关闭幕布模糊、关闭无限动画
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce){
+  .curtain .blur-layer{
+    -webkit-backdrop-filter:none !important; backdrop-filter:none !important;
+  }
+  .guard-eye{ animation:none; }
+  .rune.shake{ animation:none; }
+  .tex{ transition:none !important; }
+  *{ scroll-behavior:auto !important; }
+}
+</style>
 </head>
 <body>
+<!-- ==========================================================================
+     全局 SVG 定义（图标 / 符文 / 藏宝图 / 松树，全部手绘内联，无 emoji）
+     所有 <use href="#..."> 均为同文档相对引用，不以 "/" 开头
+     ========================================================================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <!-- 羊皮纸渐变 -->
+    <linearGradient id="parch" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e6d4a8"/><stop offset="1" stop-color="#c9ad7a"/>
+    </linearGradient>
 
-  <!-- 背景场景层（跨章节交叉淡入淡出） -->
-  <div class="scene" id="sceneA" aria-hidden="true"></div>
-  <div class="scene" id="sceneB" aria-hidden="true"></div>
+    <!-- 四个符文（几何字形，居中于原点，约 18px 范围） -->
+    <g id="g-tri"><path d="M0 -9 L9 9 L-9 9 Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></g>
+    <g id="g-sq"><rect x="-8" y="-8" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2.5"/></g>
+    <g id="g-cir"><circle r="8.5" fill="none" stroke="currentColor" stroke-width="2.5"/><circle r="2.4" fill="currentColor"/></g>
+    <g id="g-dia"><path d="M0 -9 L9 0 L0 9 L-9 0 Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></g>
 
-  <!-- 电影级光影叠加层 -->
-  <div class="overlay overlay-vignette" aria-hidden="true"></div>
-  <div class="overlay overlay-rays" aria-hidden="true"></div>
-  <div class="overlay overlay-grain" aria-hidden="true"></div>
+    <!-- 指南针玫瑰（图标用） -->
+    <g id="ic-compass">
+      <circle r="10" fill="none" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M0 -9 L4 0 L0 9 L-4 0 Z" fill="currentColor"/>
+    </g>
 
-  <!-- 漂浮粒子（金色尘埃 / 火光） -->
-  <div class="particles" id="particles" aria-hidden="true"></div>
+    <!-- 完整藏宝图：绘制于 320×320 坐标系，供 4 块碎片按象限裁剪拼接 -->
+    <g id="mapArt">
+      <rect x="0" y="0" width="320" height="320" fill="#d9c193"/>
+      <rect x="0" y="0" width="320" height="320" fill="url(#parch)"/>
+      <rect x="6" y="6" width="308" height="308" fill="none" stroke="#6a4f2c" stroke-width="2"/>
+      <rect x="12" y="12" width="296" height="296" fill="none" stroke="#6a4f2c" stroke-width="1" opacity="0.6"/>
+      <!-- 经纬网格 -->
+      <g stroke="#8a6a3a" stroke-width="0.6" opacity="0.25">
+        <line x1="12" y1="80" x2="308" y2="80"/><line x1="12" y1="160" x2="308" y2="160"/><line x1="12" y1="240" x2="308" y2="240"/>
+        <line x1="80" y1="12" x2="80" y2="308"/><line x1="160" y1="12" x2="160" y2="308"/><line x1="240" y1="12" x2="240" y2="308"/>
+      </g>
+      <!-- 河流 -->
+      <path d="M40 260 C90 240 70 200 120 180 C170 160 150 120 190 104" fill="none" stroke="#4a7a8c" stroke-width="7" opacity="0.5" stroke-linecap="round"/>
+      <path d="M40 260 C90 240 70 200 120 180 C170 160 150 120 190 104" fill="none" stroke="#6fb3c8" stroke-width="2" opacity="0.7" stroke-linecap="round"/>
+      <!-- 山脉（左上） -->
+      <g fill="#7a6138" stroke="#57452a" stroke-width="1">
+        <path d="M40 90 L70 40 L100 90 Z"/><path d="M80 96 L112 44 L144 96 Z"/><path d="M20 100 L44 62 L68 100 Z" fill="#8a7046"/>
+      </g>
+      <!-- 森林（中右） -->
+      <g fill="#5c7a4a" opacity="0.85">
+        <path d="M200 140 l8 20 l-16 0 Z"/><path d="M214 136 l8 24 l-16 0 Z"/><path d="M228 142 l7 18 l-14 0 Z"/>
+      </g>
+      <!-- 藏宝路线（虚线） -->
+      <path d="M60 290 C100 250 80 220 140 200 C200 180 210 130 250 70" fill="none" stroke="#b8860b" stroke-width="3" stroke-dasharray="2 8" stroke-linecap="round"/>
+      <!-- X 标记 -->
+      <g stroke="#a8322a" stroke-width="5" stroke-linecap="round">
+        <line x1="244" y1="56" x2="270" y2="82"/><line x1="270" y1="56" x2="244" y2="82"/>
+      </g>
+      <circle cx="257" cy="69" r="14" fill="none" stroke="#a8322a" stroke-width="2" opacity="0.7"/>
+      <!-- 指南针（右下） -->
+      <g transform="translate(286,286)">
+        <circle r="20" fill="none" stroke="#6a4f2c" stroke-width="2"/>
+        <path d="M0 -16 L5 0 L0 16 L-5 0 Z" fill="#b8860b"/>
+        <path d="M0 -16 L5 0 L0 16 L-5 0 Z" fill="#5c4327" opacity="0.5" transform="rotate(90)"/>
+        <text x="-4" y="-24" font-size="10" fill="#6a4f2c" font-family="serif">N</text>
+      </g>
+      <!-- 折痕（沿拼接线） -->
+      <g stroke="#8a6a3a" stroke-width="1" opacity="0.35" stroke-dasharray="6 4">
+        <line x1="160" y1="6" x2="160" y2="314"/><line x1="6" y1="160" x2="314" y2="160"/>
+      </g>
+    </g>
 
-  <!-- 电影黑边 -->
-  <div class="letterbox letterbox--top" aria-hidden="true"></div>
-  <div class="letterbox letterbox--bottom" aria-hidden="true"></div>
+    <!-- 松树（森林层用，symbol 带 viewBox 才能按 width/height 缩放） -->
+    <symbol id="pine" viewBox="0 0 40 80">
+      <path d="M20 4 L36 34 L28 34 L40 60 L30 60 L34 78 L6 78 L10 60 L0 60 L12 34 L4 34 Z" fill="currentColor"/>
+    </symbol>
+  </defs>
+</svg>
 
-  <main class="container">
-    <header class="hero">
-      <div class="hero-emblem" aria-hidden="true">✦</div>
-      <h1 class="title">寻宝大冒险</h1>
-      <p class="subtitle">失落的星辰宝藏 · 一次 async/await 异步探险之旅</p>
-    </header>
+<div id="app">
+  <div id="bg-glow"></div>
 
-    <!-- 探险任务追踪器 -->
-    <section class="panel quest">
-      <header class="panel-head">
-        <span class="panel-head__diamond" aria-hidden="true"></span>
-        <span class="panel-head__title">探险进度</span>
-        <span class="panel-head__diamond" aria-hidden="true"></span>
-      </header>
-      <div class="compass" id="compass" aria-hidden="true">🧭</div>
-      <div class="progress-track" aria-hidden="true">
-        <div class="progress-bar" id="progressBar"></div>
-      </div>
-      <ol class="stages" id="stageList">
-        <!-- 阶段列表由 JS 根据 STAGES 配置渲染 -->
-      </ol>
-    </section>
+  <!-- 镜头轨道：7 个场景（序章 + 6 阶段） -->
+  <div id="camera">
+    <div id="track">
 
-    <!-- 探险日志 -->
-    <section class="panel log" id="log" aria-live="polite" aria-label="寻宝日志"></section>
+      <!-- 序章（场景 0） -->
+      <section class="scene scene-title" data-scene="0">
+        <div class="scene-bg title-bg">
+          <div class="stars"></div>
+          <svg class="compass" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="46" fill="none" stroke="var(--gold)" stroke-width="1"/>
+            <circle cx="50" cy="50" r="34" fill="none" stroke="var(--gold)" stroke-width="0.6" opacity="0.6"/>
+            <path d="M50 14 L58 50 L50 86 L42 50 Z" fill="none" stroke="var(--gold)" stroke-width="1"/>
+            <path d="M14 50 L50 42 L86 50 L50 58 Z" fill="none" stroke="var(--gold)" stroke-width="1"/>
+            <circle cx="50" cy="50" r="5" fill="var(--gold)"/>
+          </svg>
+        </div>
+        <div class="focal title-card card" data-id="titleCard">
+          <h1>失落的王冠</h1>
+          <p class="sub">一段穿越古卷、森林与神庙的寻宝冒险</p>
+          <button class="btn btn-gold" data-id="btnStart">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            开始寻宝
+          </button>
+        </div>
+      </section>
 
-    <!-- 结果展示 -->
-    <section class="panel result" id="result" hidden>
-      <div class="chest" id="chest" aria-hidden="true">🎁</div>
-      <h2 class="result-title" id="resultTitle"></h2>
-      <p class="result-text" id="resultText"></p>
-    </section>
+      <!-- 阶段 1：获得藏宝图 -->
+      <section class="scene" data-scene="1">
+        <div class="scene-bg"></div>
+        <div class="focal card map-card" data-id="mapCard">
+          <h2>获得藏宝图</h2>
+          <p>四块羊皮纸碎片散落四周，把它们拼回原样。</p>
+          <div class="map-grid" id="mapGrid">
+            <div class="frag" data-id="frag0"><svg viewBox="0 0 160 160" preserveAspectRatio="xMidYMid slice"><use href="#mapArt"></use></svg></div>
+            <div class="frag" data-id="frag1"><svg viewBox="160 0 160 160" preserveAspectRatio="xMidYMid slice"><use href="#mapArt"></use></svg></div>
+            <div class="frag" data-id="frag2"><svg viewBox="0 160 160 160" preserveAspectRatio="xMidYMid slice"><use href="#mapArt"></use></svg></div>
+            <div class="frag" data-id="frag3"><svg viewBox="160 160 160 160" preserveAspectRatio="xMidYMid slice"><use href="#mapArt"></use></svg></div>
+          </div>
+          <p class="hint strong hidden" data-id="mapHint">藏宝图拼合完成，宝藏指向东方古庙。</p>
+          <button class="btn btn-gold" data-id="btnAssemble" style="margin-top:14px">拼合藏宝图</button>
+          <button class="btn btn-ghost hidden" data-id="btnMapNext" style="margin-top:14px">继续</button>
+        </div>
+      </section>
 
-    <div class="actions">
-      <button id="startBtn" class="btn" type="button">⚓ 开始寻宝</button>
+      <!-- 阶段 2：解密古文 -->
+      <section class="scene" data-scene="2">
+        <div class="scene-bg"></div>
+        <div class="focal card decode-card" data-id="decodeCard">
+          <h2>解密古文</h2>
+          <p>记住符文点亮的顺序，然后依序点击。</p>
+          <div class="runes">
+            <button class="rune" data-id="rune0"><svg viewBox="-12 -12 24 24"><use href="#g-tri"/></svg></button>
+            <button class="rune" data-id="rune1"><svg viewBox="-12 -12 24 24"><use href="#g-sq"/></svg></button>
+            <button class="rune" data-id="rune2"><svg viewBox="-12 -12 24 24"><use href="#g-cir"/></svg></button>
+            <button class="rune" data-id="rune3"><svg viewBox="-12 -12 24 24"><use href="#g-dia"/></svg></button>
+          </div>
+          <p class="decoded hidden" data-id="decoded">「宝藏就在古庙深处」</p>
+          <button class="btn btn-ghost hidden" data-id="btnReplay" style="margin-top:12px">重播顺序</button>
+        </div>
+      </section>
+
+      <!-- 阶段 3：穿越黑暗森林 -->
+      <section class="scene" data-scene="3">
+        <div class="scene-bg forest-bg">
+          <div class="forest-cam" id="forestCam">
+            <div class="layer l3" id="forestL3"></div>
+            <div class="layer l2" id="forestL2"></div>
+            <div class="layer l1" id="forestL1"></div>
+            <div class="forest-fog"></div>
+          </div>
+          <div class="forest-glow" id="forestGlow"></div>
+        </div>
+        <div class="focal card forest-card" data-id="forestCard">
+          <h2>穿越黑暗森林</h2>
+          <p>迷雾深处似有微光，继续前行穿过古树。</p>
+          <p class="hint" id="forestHint">拨开藤蔓，向前走。</p>
+          <button class="btn btn-gold" data-id="btnForest" style="margin-top:14px">前进</button>
+        </div>
+      </section>
+
+      <!-- 阶段 4：破解石门机关 -->
+      <section class="scene" data-scene="4">
+        <div class="scene-bg"></div>
+        <div class="focal card door-card" data-id="doorCard">
+          <h2>破解石门机关</h2>
+          <p>点击石盘旋转，使顶部符文与上方目标一致。</p>
+          <div class="discs" id="discs"></div>
+          <p class="hint" id="doorHint">四盘归位，石门自开。</p>
+        </div>
+      </section>
+
+      <!-- 阶段 5：躲避神庙守卫 -->
+      <section class="scene" data-scene="5">
+        <div class="scene-bg guard-bg">
+          <svg class="guard" viewBox="0 0 220 300" width="200" style="position:absolute; left:50%; bottom:16%; transform:translateX(-50%); opacity:.9">
+            <rect x="70" y="40" width="80" height="70" rx="10" fill="#3a4150"/>
+            <rect x="86" y="12" width="48" height="30" rx="8" fill="#2b3240"/>
+            <circle cx="110" cy="70" r="10" fill="#e0684a"/>
+            <circle cx="110" cy="70" r="4" fill="#ffd9b0"/>
+            <rect x="60" y="110" width="100" height="70" rx="12" fill="#2b3240"/>
+            <rect x="48" y="180" width="20" height="90" rx="8" fill="#232a38"/>
+            <rect x="152" y="180" width="20" height="90" rx="8" fill="#232a38"/>
+            <rect x="60" y="268" width="100" height="18" rx="8" fill="#1c2230"/>
+            <path d="M60 140 L20 240 L60 190 Z" fill="#e0684a" opacity="0.28"/>
+            <path d="M160 140 L200 240 L160 190 Z" fill="#e0684a" opacity="0.28"/>
+          </svg>
+          <div class="guard-eye"></div>
+        </div>
+        <div class="focal card guard-card" data-id="guardCard">
+          <h2>躲避神庙守卫</h2>
+          <p>光标扫过时，等它进入绿色安全区再点击「躲避」。</p>
+          <div class="guard-track">
+            <div class="guard-safe"></div>
+            <div class="guard-cursor" id="guardCursor"></div>
+          </div>
+          <button class="btn btn-gold" data-id="btnDuck" style="margin-top:10px">躲避</button>
+        </div>
+      </section>
+
+      <!-- 阶段 6：打开宝箱 -->
+      <section class="scene" data-scene="6">
+        <div class="scene-bg chest-bg"></div>
+        <div class="focal card chest-card" data-id="chestCard">
+          <h2>打开宝箱</h2>
+          <div class="chest">
+            <div class="chest-glow" id="chestGlow"></div>
+            <div class="lock-marker" id="lockMarker"></div>
+            <div class="key" id="key">
+              <svg viewBox="0 0 64 36" aria-hidden="true">
+                <circle cx="14" cy="18" r="10" fill="none" stroke="#f0cf7a" stroke-width="5"/>
+                <rect x="22" y="15" width="34" height="6" rx="2" fill="#f0cf7a"/>
+                <rect x="46" y="21" width="5" height="8" rx="1" fill="#f0cf7a"/>
+                <rect x="54" y="24" width="5" height="8" rx="1" fill="#f0cf7a"/>
+              </svg>
+            </div>
+            <div class="chest-lid" id="chestLid">
+              <svg viewBox="0 0 220 74">
+                <path d="M10 74 Q110 18 210 74 Z" fill="#6b4f2e"/>
+                <path d="M10 74 Q110 18 210 74 Z" fill="none" stroke="#c9a227" stroke-width="3"/>
+                <path d="M70 74 L84 42 L110 52 L136 42 L150 74 Z" fill="#c9a227"/>
+              </svg>
+            </div>
+            <svg class="chest-body" viewBox="0 0 220 74">
+              <rect x="10" y="0" width="200" height="64" rx="8" fill="#5c4327"/>
+              <rect x="10" y="0" width="200" height="10" fill="#4a3620"/>
+              <rect x="98" y="8" width="24" height="22" rx="3" fill="#c9a227"/>
+              <rect x="16" y="26" width="188" height="3" fill="#3a2c16"/>
+              <rect x="16" y="44" width="188" height="3" fill="#3a2c16"/>
+            </svg>
+            <div class="reward" id="reward">
+              <svg viewBox="0 0 64 64">
+                <path d="M12 46 l10 -34 16 16 14 -16 10 34 Z" fill="#f0cf7a"/>
+                <path d="M12 46 l10 -34 16 16 14 -16 10 34 Z" fill="none" stroke="#b98a2e" stroke-width="2"/>
+                <circle cx="32" cy="42" r="5" fill="#fff2c8"/>
+              </svg>
+            </div>
+          </div>
+          <p class="hint" id="chestHint">先插入钥匙，再打开宝箱。</p>
+          <button class="btn btn-gold" data-id="btnInsert" style="margin-top:10px">插入钥匙</button>
+          <button class="btn btn-gold hidden" data-id="btnOpen" style="margin-top:10px">打开宝箱</button>
+          <button class="btn btn-ghost hidden" data-id="btnReward" style="margin-top:10px">领取王冠</button>
+        </div>
+      </section>
+
     </div>
+  </div>
 
-    <footer class="footer">HTML / CSS / JavaScript · async/await 异步寻宝演示</footer>
-  </main>
+  <!-- 转场幕布（整屏渐进模糊，一闪而过） -->
+  <div id="veil"></div>
 
-  <script src="js/treasure.js"></script>
+  <!-- 顶部品牌栏 -->
+  <header id="titlebar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 3.6L15.4 10 12 8 8.6 10Z"/></svg>
+      寻宝奇旅
+    </div>
+    <div class="stage-name" id="stageName">序章</div>
+  </header>
+
+  <!-- 底部 HUD：进度 + 日志 -->
+  <div id="hud">
+    <div class="hud-steps" id="hudSteps"></div>
+    <div class="hud-log" id="log"></div>
+  </div>
+</div>
+
+<!-- 结束幕 -->
+<div id="overlay" class="hidden">
+  <div class="end-card">
+    <h2>寻宝成功</h2>
+    <p>你集齐了六段冒险，赢得了失落的王冠。</p>
+    <button class="btn btn-gold" data-id="btnAgain">再次冒险</button>
+  </div>
+</div>
+
+<!-- 浮动提示 -->
+<div id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ========================================================================
+     工具与状态
+     ======================================================================== */
+  const $  = (s, r) => {
+    const root = r || document;
+    let el = root.querySelector(s);
+    if (el) return el;
+    // 兼容：按钮/卡片等用 data-id 而非 id 时，允许 #xxx 通过 data-id 命中
+    if (s.charAt(0) === '#') el = root.querySelector('[data-id="' + s.slice(1) + '"]');
+    return el;
+  };
+  const $$ = (s, r) => Array.from((r||document).querySelectorAll(s));
+
+  // 尊重系统减弱动画偏好：开启后弹簧瞬时完成、模糊层关闭
+  const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const STAGE_NAMES = ['序章','藏宝图','古文解密','黑暗森林','石门机关','神庙守卫','无上宝藏'];
+  const STAGE_LOG   = ['','你获得了一张残破的藏宝图。','羊皮卷上的古文缓缓浮现。','你踏入了浓雾弥漫的黑森林。','古老石门上刻着旋转机关。','守卫正在沉睡，别惊动它。','宝箱就在眼前。'];
+
+  const state = {
+    scene: 0,                 // 当前场景索引（状态变量，禁止层层回调）
+    step: 0,                  // 1..6 对应 HUD 进度（0=序章）
+    camVw: 0,                 // 相机当前 translateX（vw）
+    discAngle: [90, 0, 0, 180],   // 石盘当前角度
+    discTarget:[180,90,270,0],    // 石盘目标角度（使目标符文朝上）
+    runeSeq: [0,2,1,3],           // 古文点亮顺序
+    runeStep: 0,                  // 玩家当前点击到第几步
+    forestStep: 0,                // 森林前进步数
+  };
+
+  function delay(ms){
+    return new Promise(res => setTimeout(res, REDUCED ? 0 : ms));
+  }
+  const normalize = a => ((a % 360) + 360) % 360;
+
+  /* ========================================================================
+     【弹簧动画函数在哪】 —— 纯 JS 弹簧物理（requestAnimationFrame + Hooke 定律）
+     F = -k*(x-target) - c*v ；a = F/m；半隐式欧拉积分。
+     关键特性：可中断续接（同名 key 复用弹簧，从当前值/速度续跑），
+     并支持中途改目标（retarget），用于按压回弹、宝箱过冲等。
+     ======================================================================== */
+  const springs = new Map();
+
+  class Spring{
+    constructor(o){
+      this.stiffness = o.stiffness ?? 180;
+      this.damping   = o.damping   ?? 14;
+      this.mass      = o.mass      ?? 1;
+      this.value     = o.from      ?? 0;
+      this.velocity  = o.velocity  ?? 0;
+      this.target    = o.to        ?? 0;
+      this.precision = o.precision ?? 0.001;
+      this.onUpdate  = o.onUpdate  || (()=>{});
+      this.onDone    = o.onDone    || (()=>{});
+      this._raf = 0; this._running = false; this._last = 0;
+    }
+    setTarget(t, o={}){
+      if (o.stiffness!=null) this.stiffness=o.stiffness;
+      if (o.damping!=null)   this.damping=o.damping;
+      if (o.mass!=null)      this.mass=o.mass;
+      if (o.onDone)          this.onDone=o.onDone;
+      this.target = t;
+      if (!this._running) this.start();
+    }
+    start(){
+      this._running = true; this._last = performance.now();
+      const step = now => {
+        if (!this._running) return;
+        let dt = (now - this._last)/1000; this._last = now;
+        if (dt > 0.032) dt = 0.032; if (dt < 0) dt = 0;
+        // Hooke 定律：合力 = 回复力 + 阻尼力
+        const F = -this.stiffness*(this.value - this.target) - this.damping*this.velocity;
+        const a = F/this.mass;
+        this.velocity += a*dt;
+        this.value    += this.velocity*dt;
+        this.onUpdate(this.value, this.velocity);
+        if (Math.abs(this.value-this.target) < this.precision && Math.abs(this.velocity) < this.precision){
+          this.value = this.target; this.onUpdate(this.value, 0);
+          this._running = false; this.onDone();
+        } else {
+          this._raf = requestAnimationFrame(step);
+        }
+      };
+      this._raf = requestAnimationFrame(step);
+    }
+    stop(){ this._running=false; if(this._raf) cancelAnimationFrame(this._raf); this._raf=0; }
+  }
+
+  function animate(key, o){
+    // 减弱动画：直接落位
+    if (REDUCED){ o.onUpdate(o.to, 0); if (o.onDone) o.onDone(); return null; }
+    const s = springs.get(key);
+    if (s && s._running){ s.setTarget(o.to, o); return s; }   // 中断续接
+    const sp = new Spring(Object.assign({}, o, { from: o.from ?? 0 }));
+    const done = o.onDone;
+    sp.onDone = () => { springs.delete(key); if (done) done(); };
+    springs.set(key, sp);
+    sp.start();
+    return sp;
+  }
+
+  // 入场：位移 + 渐进模糊 + 透明度（弹簧），stiffness 120 / damping 18
+  function springIn(el, o={}){
+    const dy = o.dy ?? 18, blur = o.blur ?? 12;
+    const stiffness = o.stiffness ?? 120, damping = o.damping ?? 18, d = o.delay ?? 0;
+    el.style.opacity = '0';
+    el.style.filter = 'blur(' + blur + 'px)';
+    el.style.transform = 'translate3d(0,' + dy + 'px,0) translateZ(0)';
+    el.style.willChange = 'filter,opacity,transform';
+    const run = () => {
+      if (REDUCED){ el.style.opacity='1'; el.style.filter=''; el.style.transform=''; return; }
+      animate('in:' + el.dataset.id, {
+        from:0, to:1, stiffness, damping,
+        onUpdate: t => {
+          el.style.opacity = String(Math.min(1, t));
+          el.style.filter = 'blur(' + Math.max(0, blur*(1-t)) + 'px)';
+          el.style.transform = 'translate3d(0,' + (dy*(1-t)) + 'px,0) translateZ(0)';
+        },
+        onDone: () => { el.style.filter=''; el.style.willChange=''; el.style.transform=''; }
+      });
+    };
+    d ? setTimeout(run, d) : run();
+  }
+
+  // 仅做「渐进模糊 → 清晰」的淡入，不动 transform（供钥匙等已用 transform 定位的元素）
+  function fadeInBlur(el, blur){
+    blur = blur ?? 10;
+    el.style.opacity = '0';
+    el.style.filter = 'blur(' + blur + 'px)';
+    el.style.willChange = 'filter,opacity';
+    if (REDUCED){ el.style.opacity='1'; el.style.filter=''; return; }
+    animate('fade:' + el.id, {
+      from:0, to:1, stiffness:120, damping:18,
+      onUpdate: t => {
+        el.style.opacity = String(Math.min(1, t));
+        el.style.filter = 'blur(' + Math.max(0, blur*(1-t)) + 'px)';
+      },
+      onDone: () => { el.style.filter=''; el.style.willChange=''; }
+    });
+  }
+
+  // 按钮按压回弹：scale 下去再弹回（stiffness 400 / damping 12）
+  function bindPress(el){
+    const set = v => { el.style.transform = 'scale(' + v + ')'; };
+    el.addEventListener('pointerdown', () => {
+      animate('press:' + el.dataset.id, { from: el._s ?? 1, to: 0.94, stiffness:400, damping:12, onUpdate: set });
+    });
+    el.addEventListener('pointerup', () => {
+      el._s = 0.94;
+      animate('press:' + el.dataset.id, { from: el._s, to: 1, stiffness:400, damping:12, onUpdate: set, onDone:()=>{ el._s=1; } });
+    });
+    el.addEventListener('pointerleave', () => {
+      animate('press:' + el.dataset.id, { from: el._s ?? 1, to: 1, stiffness:400, damping:12, onUpdate: set });
+    });
+  }
+
+  /* ========================================================================
+     【视觉对齐 FLIP 逻辑在哪】
+     First→Last→Invert→Play：记录上一帧 getBoundingClientRect，变更布局后
+     用 transform 补间（弹簧驱动 t 0→1）从旧位置回到新位置，绝不硬跳。
+     ======================================================================== */
+  function flipInto(els, mutate, o={}){
+    const first = els.map(el => el.getBoundingClientRect());
+    mutate();
+    const stiffness = o.stiffness ?? 160, damping = o.damping ?? 14, stagger = o.stagger ?? 0;
+    els.forEach((el, i) => {
+      const last = el.getBoundingClientRect();
+      const dx = first[i].left - last.left;
+      const dy = first[i].top  - last.top;
+      const sx = last.width  ? first[i].width  / last.width  : 1;
+      const sy = last.height ? first[i].height / last.height : 1;
+      if (Math.abs(dx)<0.5 && Math.abs(dy)<0.5 && Math.abs(sx-1)<0.002 && Math.abs(sy-1)<0.002) return;
+      el.style.willChange = 'transform';
+      el.style.transformOrigin = 'top left';
+      const run = () => {
+        if (REDUCED){ el.style.transform=''; el.style.willChange=''; return; }
+        const key = 'flip-' + el.dataset.id;
+        animate(key, {
+          from:0, to:1, stiffness, damping,
+          onUpdate: t => {
+            el.style.transform = 'translate(' + (dx*(1-t)) + 'px,' + (dy*(1-t)) + 'px) scale(' +
+              (sx + (1-sx)*(1-t)) + ',' + (sy + (1-sy)*(1-t)) + ')';
+          },
+          onDone: () => { el.style.transform=''; el.style.willChange=''; }
+        });
+      };
+      const d = stagger*i; d ? setTimeout(run, d) : run();
+    });
+  }
+
+  // 共享元素过渡：把 el 的克隆从当前位置「飞」进目标槽（用于王冠→HUD）
+  function flyToSlot(el, slot, onDone){
+    const r1 = el.getBoundingClientRect();
+    const r2 = slot.getBoundingClientRect();
+    const clone = el.cloneNode(true);
+    clone.style.position = 'fixed';
+    clone.style.left = r1.left + 'px'; clone.style.top = r1.top + 'px';
+    clone.style.width = r1.width + 'px'; clone.style.height = r1.height + 'px';
+    clone.style.margin = '0'; clone.style.zIndex = '30';
+    clone.style.pointerEvents = 'none';
+    document.body.appendChild(clone);
+    if (REDUCED){ clone.remove(); slot.classList.add('filled'); onDone && onDone(); return; }
+    const dx = r2.left - r1.left, dy = r2.top - r1.top;
+    const sx = r1.width ? r2.width / r1.width : 1;
+    const sy = r1.height ? r2.height / r1.height : 1;
+    animate('fly', {
+      from:0, to:1, stiffness:200, damping:16,
+      onUpdate: t => {
+        clone.style.transform = 'translate(' + (dx*t) + 'px,' + (dy*t) + 'px) scale(' +
+          (1+(sx-1)*t) + ',' + (1+(sy-1)*t) + ')';
+      },
+      onDone: () => { clone.remove(); slot.classList.add('filled'); onDone && onDone(); }
+    });
+  }
+
+  // 把元素本体从当前位置 FLIP 补间到目标（钥匙嵌入锁孔等像素级衔接，落位后保留）
+  function moveTo(el, target, onDone, o={}){
+    const r1 = el.getBoundingClientRect();
+    const r2 = target.getBoundingClientRect();
+    const dx = r2.left - r1.left, dy = r2.top - r1.top;
+    const sx = r1.width ? r2.width / r1.width : 1;
+    const sy = r1.height ? r2.height / r1.height : 1;
+    el.style.position = 'fixed';
+    el.style.left = r1.left + 'px'; el.style.top = r1.top + 'px';
+    el.style.width = r1.width + 'px'; el.style.height = r1.height + 'px';
+    el.style.margin = '0'; el.style.zIndex = '30';
+    el.style.transformOrigin = '18% 50%';
+    el.style.transform = 'translate(0,0) rotate(0deg) scale(1,1)';
+    document.body.appendChild(el);
+    if (REDUCED){ onDone && onDone(); return; }
+    void el.offsetWidth;
+    animate('move', {
+      from:0, to:1, stiffness:o.stiffness ?? 220, damping:o.damping ?? 14,
+      onUpdate: t => {
+        el.style.transform = 'translate(' + (dx*t) + 'px,' + (dy*t) + 'px) rotate(' + ((o.rotate||0)*t) + 'deg) scale(' +
+          (1+(sx-1)*t) + ',' + (1+(sy-1)*t) + ')';
+      },
+      onDone: () => onDone && onDone()
+    });
+  }
+
+  /* ========================================================================
+     相机平移 & HUD
+     ======================================================================== */
+  const camera = $('#camera');
+  function panTo(i){
+    animate('camera', {
+      from: state.camVw, to: -i*100, stiffness:120, damping:18,
+      onUpdate: v => { state.camVw = v; camera.style.transform = 'translate3d(' + v + 'vw,0,0)'; }
+    });
+  }
+
+  const STEPS = [
+    { name:'藏宝图', ico:'M12 3 3 21h18z' },
+    { name:'古文解密', ico:'M5 4h14v3H5zM6 9h12v10H6z' },
+    { name:'黑暗森林', ico:'M12 3 9 9h6zM12 8l-2 6h4zM7 14l-2 6h4zM17 14l2 6h-4z' },
+    { name:'石门机关', ico:'M4 20V10l8-6 8 6v10z' },
+    { name:'神庙守卫', ico:'M12 3c4 0 7 3 7 7v8h-4v-6H9v6H5v-8c0-4 3-7 7-7z' },
+    { name:'无上宝藏', ico:'M4 19h16v-9h-6l-2-4-2 4H4z' },
+  ];
+  const hudSteps = $('#hudSteps');
+  STEPS.forEach((s, i) => {
+    const b = document.createElement('div');
+    b.className = 'hud-step'; b.dataset.step = i+1;
+    b.innerHTML = '<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="' + s.ico + '"/></svg><span>' + s.name + '</span>';
+    hudSteps.appendChild(b);
+  });
+
+  function updateHud(step){
+    state.step = step;
+    $$('.hud-step').forEach(el => {
+      const n = +el.dataset.step;
+      el.classList.toggle('done', n < step);
+      el.classList.toggle('active', n === step);
+    });
+    $('#stageName').textContent = STAGE_NAMES[step];
+  }
+
+  function log(text){
+    const el = $('#log');
+    el.style.opacity = '0';
+    el.textContent = text;
+    animate('log', { from:0, to:1, stiffness:200, damping:18, onUpdate: t => { el.style.opacity = String(t); } });
+  }
+
+  function toast(text){
+    const el = $('#toast');
+    el.textContent = text;
+    animate('toast', { from:0, to:1, stiffness:220, damping:16, onUpdate: t => {
+      el.style.opacity = String(Math.min(1, t));
+      el.style.transform = 'translate(-50%,' + (-12 + 12*t) + 'px) scale(' + (0.9 + 0.1*t) + ')';
+    }});
+    clearTimeout(el._tm);
+    el._tm = setTimeout(() => {
+      animate('toast-out', { from:1, to:0, stiffness:220, damping:20, onUpdate: t => { el.style.opacity = String(t); } });
+    }, 1500);
+  }
+
+  // 转场幕布：一闪而过的整屏渐进模糊
+  function veil(on){
+    const el = $('#veil');
+    animate('veil', { from: on?0:1, to: on?1:0, stiffness:300, damping:24, onUpdate: t => {
+      el.style.opacity = String(Math.min(1, t));
+      el.style.backdropFilter = 'blur(' + Math.round(12*t) + 'px)';
+      el.style.webkitBackdropFilter = 'blur(' + Math.round(12*t) + 'px)';
+    }});
+  }
+
+  // 等待按钮点击
+  function waitClick(btn){
+    return new Promise(res => {
+      btn.disabled = false;
+      const h = () => { btn.removeEventListener('click', h); btn.disabled = true; res(); };
+      btn.addEventListener('click', h);
+    });
+  }
+
+  /* ========================================================================
+     async/await 流程控制在哪 —— 六个阶段串成一条 async 链，
+     每阶段返回 Promise，内部 await 用户交互，绝无层层回调。
+     ======================================================================== */
+  async function enterStage(i){
+    state.scene = i;
+    if (i >= 1){ updateHud(i); }
+    veil(true);
+    panTo(i);
+    await delay(REDUCED ? 0 : 360);
+    veil(false);
+    const scene = $('.scene[data-scene="' + i + '"]');
+    const focal = scene.querySelector('.focal');
+    if (focal && !focal.dataset.revealed){
+      focal.dataset.revealed = '1';
+      springIn(focal, { stiffness:120, damping:18 });
+    }
+    log(STAGE_LOG[i]);
+    await delay(REDUCED ? 0 : 220);
+  }
+
+  /* ---- 阶段 1：获得藏宝图（碎片 FLIP 拼合） ---- */
+  async function getClue(){
+    await enterStage(1);
+    const frags = $$('#mapGrid .frag');
+    // 先散开（记录 FLIP 的「上一帧」位置）
+    const scatter = [[-210,-150],[210,-150],[-210,150],[210,150]];
+    frags.forEach((f,i) => { f.style.transform = 'translate(' + scatter[i][0] + 'px,' + scatter[i][1] + 'px) scale(0.9)'; });
+    const btn = $('#btnAssemble');
+    await waitClick(btn);
+    // FLIP：拼合碎片到 2×2 网格
+    flipInto(frags, () => { frags.forEach(f => f.style.transform = ''); }, { stiffness:120, damping:18, stagger:60 });
+    await delay(REDUCED ? 0 : 900);
+    const hint = $('#mapHint');
+    hint.classList.remove('hidden');
+    springIn(hint, { stiffness:120, damping:18, blur:14 });
+    btn.classList.add('hidden');
+    const next = $('#btnMapNext');
+    next.classList.remove('hidden');
+    springIn(next, { stiffness:120, damping:18 });
+    await waitClick(next);
+  }
+
+  /* ---- 阶段 2：解密古文（西蒙序列） ---- */
+  async function decodeScript(){
+    await enterStage(2);
+    const runes = $$('.rune');
+    const seq = state.runeSeq;
+
+    async function flash(i){
+      runes[i].classList.add('lit');
+      await delay(380);
+      runes[i].classList.remove('lit');
+      await delay(180);
+    }
+    async function playSeq(){
+      for (const i of seq) await flash(i);
+    }
+
+    await delay(300);
+    await playSeq();
+    $('#btnReplay').classList.remove('hidden');
+
+    await new Promise(async resolve => {
+      state.runeStep = 0;
+      let solving = true;
+
+      function reset(){
+        state.runeStep = 0;
+        runes.forEach(r => r.classList.remove('ok'));
+      }
+      function onRune(e){
+        if (!solving) return;
+        const idx = runes.indexOf(e.currentTarget);
+        if (idx === seq[state.runeStep]){
+          runes[idx].classList.add('ok');
+          state.runeStep++;
+          if (state.runeStep === seq.length){
+            solving = false;
+            const decoded = $('#decoded');
+            decoded.classList.remove('hidden');
+            springIn(decoded, { stiffness:120, damping:18, blur:16 });
+            $('#btnReplay').classList.add('hidden');
+            setTimeout(resolve, 1200);
+          }
+        } else {
+          // 点错：抖动 + 复位
+          reset();
+          runes.forEach(r => r.classList.add('shake'));
+          setTimeout(() => runes.forEach(r => r.classList.remove('shake')), 420);
+          playSeq();
+        }
+      }
+      runes.forEach(r => r.addEventListener('click', onRune));
+      $('#btnReplay').addEventListener('click', () => { reset(); playSeq(); });
+    });
+  }
+
+  /* ---- 阶段 3：穿越黑暗森林（镜头推近） ---- */
+  async function enterForest(){
+    await enterStage(3);
+    // 生成三层松树：内联 path + transform 定位（translate→scale→回移到底部），
+    // 避免 <use> 的百分比 x/y 与无单位 width/height 在各浏览器的兼容差异
+    const PINE = 'M20 4 L36 34 L28 34 L40 60 L30 60 L34 78 L6 78 L10 60 L0 60 L12 34 L4 34 Z';
+    const trees = (n, seed) => {
+      let s = '';
+      for (let i = 0; i < n; i++){
+        const x  = ((i*137 + seed*53) % 100);      // 横向位置 0~100
+        const sc = 0.5 + ((i*31 + seed) % 55)/100;  // 缩放 0.5~1.05
+        s += '<path d="' + PINE + '" transform="translate(' + x + ',100) scale(' + sc + ') translate(-20,-80)"/>';
+      }
+      return s;
+    };
+    const mktrees = (sel, n, seed) => {
+      $(sel).innerHTML = '<svg viewBox="0 0 100 100" preserveAspectRatio="none" fill="currentColor">' + trees(n, seed) + '</svg>';
+    };
+    mktrees('#forestL3', 14, 3);
+    mktrees('#forestL2', 11, 7);
+    mktrees('#forestL1', 8, 13);
+
+    const cam = $('#forestCam');
+    const glow = $('#forestGlow');
+    const hint = $('#forestHint');
+    const btn = $('#btnForest');
+    const zoomLevels = [1, 1.6, 2.3];
+
+    state.forestStep = 0;
+    while (state.forestStep < 2){
+      await waitClick(btn);
+      state.forestStep++;
+      animate('forest-zoom', {
+        from: state._zoom ?? 1, to: zoomLevels[state.forestStep], stiffness:90, damping:16,
+        onUpdate: v => { state._zoom = v; cam.style.transform = 'scale(' + v + ')'; }
+      });
+      if (state.forestStep === 1){
+        hint.textContent = '藤蔓窸窣，你继续深入……';
+        toast('继续前进');
+      } else {
+        hint.textContent = '前方出现古庙的微光。';
+        glow.style.display = 'block';
+        animate('forest-glow', { from:0, to:1, stiffness:120, damping:18, onUpdate: t => {
+          glow.style.opacity = String(t);
+          glow.style.width = (220*t) + 'px'; glow.style.height = (220*t) + 'px';
+        }});
+        await delay(REDUCED ? 0 : 900);
+      }
+    }
+  }
+
+  /* ---- 阶段 4：破解石门机关（旋转石盘） ---- */
+  async function solvePuzzle(){
+    await enterStage(4);
+    const discs = $('#discs');
+    discs.innerHTML = '';
+    const glyphs = ['g-tri','g-sq','g-cir','g-dia'];
+    const targetGlyph = ['g-cir','g-dia','g-sq','g-tri']; // 每盘目标符文
+
+    const discEls = [];
+    for (let d=0; d<4; d++){
+      const div = document.createElement('div');
+      div.className = 'disc'; div.dataset.id = 'disc' + d;
+      let face = '';
+      for (let k=0; k<4; k++){
+        const ang = k*90;
+        face += '<g transform="rotate(' + ang + ')"><g transform="translate(0,-13)"><use href="#' + glyphs[k] + '"/></g></g>';
+      }
+      div.innerHTML =
+        '<div class="target-glyph"><svg viewBox="-12 -12 24 24"><use href="#' + targetGlyph[d] + '"/></svg></div>' +
+        '<svg viewBox="0 0 72 84">' +
+          '<path d="M36 2 L41 8 L31 8 Z" fill="#c9a227"/>' +
+          '<circle cx="36" cy="44" r="26" fill="none" stroke="#6a4f2c" stroke-width="3"/>' +
+          '<circle cx="36" cy="44" r="21" fill="#141a28" stroke="#3a4a63" stroke-width="1"/>' +
+          '<g class="disc-face" style="transform-origin:36px 44px">' + face + '</g>' +
+        '</svg>';
+      discs.appendChild(div);
+      discEls.push(div);
+    }
+
+    const applyAngle = (i, ang) => {
+      const face = discEls[i].querySelector('.disc-face');
+      face.style.transform = 'rotate(' + ang + 'deg)';
+    };
+    discEls.forEach((el,i) => applyAngle(i, state.discAngle[i]));
+
+    await new Promise(resolve => {
+      function check(){
+        const done = state.discAngle.every((a,i) => normalize(a) === state.discTarget[i]);
+        if (done){ openDoor(resolve); }
+      }
+      function openDoor(resolve){
+        discEls.forEach((el,i) => el.style.pointerEvents = 'none');
+        $('#doorHint').textContent = '石门缓缓开启……';
+        toast('机关破解成功');
+        setTimeout(resolve, 900);
+      }
+      discEls.forEach((el, i) => {
+        el.addEventListener('click', () => {
+          const from = state.discAngle[i];
+          const to = normalize(from + 90);
+          state.discAngle[i] = to;
+          animate('disc' + i, { from, to, stiffness:220, damping:14, onUpdate: applyAngle.bind(null, i) });
+          setTimeout(check, 60);
+        });
+      });
+    });
+  }
+
+  /* ---- 阶段 5：躲避神庙守卫（时机判定） ---- */
+  async function avoidGuard(){
+    await enterStage(5);
+    const cursor = $('#guardCursor');
+    const btn = $('#btnDuck');
+    const SAFE = [60, 78]; // 安全区百分比
+    let x = 0, v = 1.6, stopped = false, alive = true;
+
+    function loop(){
+      if (!stopped && alive){
+        x += v;
+        if (x > 100){ v = -Math.abs(v); } if (x < 0){ v = Math.abs(v); }
+        cursor.style.left = 'calc(' + x + '% - 3px)';
+      }
+      if (alive) requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    await new Promise(resolve => {
+      btn.addEventListener('click', function duck(){
+        if (stopped) return;
+        stopped = true;
+        const ok = x >= SAFE[0] && x <= SAFE[1];
+        if (ok){
+          // 弹簧吸附到安全区中心，稳稳停住
+          animate('guard-cursor', {
+            from: x, to: (SAFE[0]+SAFE[1])/2, stiffness:220, damping:14,
+            onUpdate: v => cursor.style.left = 'calc(' + v + '% - 3px)',
+            onDone: () => { toast('守卫没有发现你'); setTimeout(resolve, 700); }
+          });
+        } else {
+          toast('被守卫察觉了，再试一次');
+          setTimeout(() => { stopped = false; }, 500);
+        }
+      });
+    });
+    alive = false;
+  }
+
+  /* ---- 阶段 6：打开宝箱（钥匙嵌入 → 弹簧弹开 → 奖励弹出） ---- */
+  async function openChest(){
+    await enterStage(6);
+    const lid = $('#chestLid');
+    const reward = $('#reward');
+    const glow = $('#chestGlow');
+    const key = $('#key');
+    const marker = $('#lockMarker');
+    const btnInsert = $('#btnInsert');
+    const btnOpen = $('#btnOpen');
+    const btnReward = $('#btnReward');
+
+    // 钥匙入场：仅渐进模糊，不动 transform（钥匙已用 transform 定位）
+    fadeInBlur(key, 8);
+    await waitClick(btnInsert);
+
+    // 钥匙嵌入锁孔：FLIP 对齐坐标系，位移时旋转 90°（锁舌转动的「咔哒」感）
+    await new Promise(res => {
+      moveTo(key, marker, () => {
+        glow.style.opacity = '0.35';
+        toast('钥匙已插入');
+        setTimeout(res, 450);
+      }, { rotate: 90, stiffness: 240, damping: 15 });
+    });
+    key.style.opacity = '0';
+    btnInsert.classList.add('hidden');
+    btnOpen.classList.remove('hidden');
+    springIn(btnOpen, { stiffness:120, damping:18 });
+
+    await waitClick(btnOpen);
+    // 宝箱弹开：stiffness 220 / damping 9（带过冲）
+    animate('chest-lid', {
+      from:0, to:1, stiffness:220, damping:9,
+      onUpdate: t => {
+        lid.style.transform = 'rotateX(' + (-78 * t) + 'deg)';
+      }
+    });
+    animate('chest-glow', { from:0, to:1, stiffness:160, damping:18, onUpdate: t => glow.style.opacity = String(t) });
+    await delay(REDUCED ? 0 : 700);
+    // 奖励弹出：渐进模糊 → 清晰 + 弹簧放大
+    reward.style.opacity = '0';
+    animate('reward', {
+      from:0, to:1, stiffness:180, damping:12,
+      onUpdate: t => {
+        reward.style.opacity = String(Math.min(1, t));
+        reward.style.transform = 'translate(-50%,0) scale(' + (0.2 + 0.8*t) + ')';
+        reward.style.filter = 'blur(' + Math.max(0, 6*(1-t)) + 'px)';
+      },
+      onDone: () => { reward.style.filter=''; }
+    });
+    $('#chestHint').textContent = '王冠闪耀着金色光芒。';
+    btnOpen.classList.add('hidden');
+    btnReward.classList.remove('hidden');
+    springIn(btnReward, { stiffness:120, damping:18 });
+    await waitClick(btnReward);
+
+    // 共享元素过渡：王冠从宝箱飞入 HUD 最后一格
+    const slot = $('.hud-step[data-step="6"] .st-ico');
+    await new Promise(res => flyToSlot(reward, slot, res));
+  }
+
+  /* ---- 结束幕 ---- */
+  async function showEnding(){
+    const ov = $('#overlay');
+    ov.classList.remove('hidden');
+    ov.style.opacity = '0';
+    animate('ending', { from:0, to:1, stiffness:120, damping:18, onUpdate: t => ov.style.opacity = String(t) });
+    $('#btnAgain').addEventListener('click', () => location.reload(), { once:true });
+  }
+
+  /* ---- 序章 ---- */
+  async function title(){
+    const card = $('#titleCard');
+    await delay(120);
+    springIn(card, { stiffness:120, damping:18, dy:24, blur:18 });
+    await waitClick($('#btnStart'));
+  }
+
+  /* ---- 主流程：async/await 串联 ---- */
+  async function main(){
+    // 页面初始化：整页「从模糊到清晰」的渐进模糊
+    const app = $('#app');
+    app.style.filter = 'blur(18px)'; app.style.opacity = '0';
+    app.style.willChange = 'filter,opacity';
+    await new Promise(res => {
+      animate('page-blur', {
+        from:0, to:1, stiffness:100, damping:20,
+        onUpdate: t => { app.style.filter = 'blur(' + Math.max(0,18*(1-t)) + 'px)'; app.style.opacity = String(Math.min(1,t)); },
+        onDone: () => { app.style.filter=''; app.style.willChange=''; res(); }
+      });
+    });
+
+    await title();        // 序章
+    await getClue();      // 1 藏宝图
+    await decodeScript(); // 2 解密古文
+    await enterForest();  // 3 黑暗森林
+    await solvePuzzle();  // 4 石门机关
+    await avoidGuard();   // 5 神庙守卫
+    await openChest();    // 6 宝箱
+    await showEnding();
+  }
+
+  /* ========================================================================
+     【3A 背景】Three.js 程序化低模远景 + 金色尘埃（真实 CDN + 降级）
+     若 CDN 不可达 / WebGL 不可用 / 减弱动画 → 静默降级到内联 CSS 星空，绝不白屏。
+     ======================================================================== */
+  function loadThree(){
+    return new Promise(res => {
+      if (window.THREE) return res(true);
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'; // 真实库，MIT
+      s.onload = () => res(!!window.THREE);
+      s.onerror = () => res(false);
+      document.head.appendChild(s);
+    });
+  }
+  function initThreeBackground(){
+    try {
+      const T = window.THREE;
+      const canvas = document.createElement('canvas');
+      canvas.id = 'bg3d';
+      canvas.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;';
+      document.body.insertBefore(canvas, document.body.firstChild);
+      const renderer = new T.WebGLRenderer({ canvas, alpha:true, antialias:false });
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      renderer.setSize(innerWidth, innerHeight);
+      const scene = new T.Scene();
+      scene.fog = new T.FogExp2(0x070a14, 0.014);
+      const camera = new T.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 120);
+      camera.position.set(0, 3, 15);
+
+      // 金色尘埃粒子
+      const N = 700, pos = new Float32Array(N*3);
+      for (let i=0;i<N;i++){ pos[i*3]=(Math.random()-0.5)*48; pos[i*3+1]=Math.random()*18; pos[i*3+2]=(Math.random()-0.5)*36-10; }
+      const geo = new T.BufferGeometry();
+      geo.setAttribute('position', new T.BufferAttribute(pos,3));
+      const points = new T.Points(geo, new T.PointsMaterial({
+        color:0xd4a94e, size:0.07, transparent:true, opacity:0.75, depthWrite:false, blending:T.AdditiveBlending
+      }));
+      scene.add(points);
+
+      // 低模远山轮廓
+      const mGeo = new T.ConeGeometry(1,1,5);
+      const mMat = new T.MeshBasicMaterial({ color:0x0b1120 });
+      const mounts = new T.Group();
+      for (let i=0;i<9;i++){
+        const m = new T.Mesh(mGeo, mMat);
+        m.position.set((i-4)*6.5, -4 + Math.random()*1.6, -32 - Math.random()*14);
+        m.scale.set(4+Math.random()*4, 6+Math.random()*9, 4+Math.random()*4);
+        mounts.add(m);
+      }
+      scene.add(mounts);
+
+      const onResize = () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); };
+      addEventListener('resize', onResize);
+
+      const t0 = performance.now();
+      (function tick(now){
+        const t = (now - t0)/1000;
+        points.rotation.y = t*0.025;
+        points.position.y = Math.sin(t*0.2)*0.6;
+        mounts.position.y = Math.sin(t*0.14)*0.4;
+        camera.position.x = Math.sin(t*0.08)*2.2;
+        camera.lookAt(0, 1.5, -24);
+        renderer.render(scene, camera);
+        requestAnimationFrame(tick);
+      })(t0);
+    } catch(e){ /* WebGL 不可用 → CSS 星空降级 */ }
+  }
+
+  /* ========================================================================
+     【3A 素材】Poly Haven CC0 贴图（真实 CDN 直链 + onerror 降级）
+     dl.polyhaven.org 为 Poly Haven 官方资产 CDN，贴图为 CC0 可商用。
+     ======================================================================== */
+  function addTexture(scene, slug, opacity){
+    const bg = scene.querySelector('.scene-bg');
+    if (!bg) return;
+    const url = 'https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/' + slug + '/' + slug + '_diff_1k.jpg';
+    const div = document.createElement('div');
+    div.className = 'tex';
+    div.style.backgroundImage = 'url(' + url + ')';
+    bg.insertBefore(div, bg.firstChild);
+    const show = () => { div.style.opacity = String(opacity); };
+    REDUCED ? show() : requestAnimationFrame(show);
+    const probe = new Image();
+    probe.onerror = () => div.remove();   // 404 / 断网 → 移除，保留渐变降级
+    probe.src = url;
+  }
+
+  /* ---- 初始化 ---- */
+  function init(){
+    // 为每个场景注入「渐进模糊幕布」（4 层 backdrop-filter + mask）
+    $$('.scene').forEach(scene => {
+      const c = document.createElement('div');
+      c.className = 'curtain';
+      [2,6,12,20].forEach(b => {
+        const l = document.createElement('div');
+        l.className = 'blur-layer'; l.dataset.blur = b;
+        c.appendChild(l);
+      });
+      scene.insertBefore(c, scene.querySelector('.focal'));
+    });
+    // 所有按钮绑定按压回弹
+    $$('.btn').forEach(bindPress);
+    // 3A 素材：Poly Haven CC0 贴图（真实 CDN 直链，失败自动降级）
+    addTexture($('.scene[data-scene="0"]'), 'aerial_grass_rock', 0.16);   // 序章：岩草地
+    addTexture($('.scene[data-scene="3"]'), 'brown_mud_leaves_01', 0.22); // 森林：落叶泥地
+    addTexture($('.scene[data-scene="4"]'), 'aerial_grass_rock', 0.18);   // 石门：岩面
+    // 3A 背景：Three.js 低模远景 + 金色尘埃（CDN 挂了降级到 CSS 星空）
+    if (!REDUCED) loadThree().then(ok => { if (ok) initThreeBackground(); });
+    // HUD 初始状态
+    updateHud(0);
+    $('#stageName').textContent = STAGE_NAMES[0];
+    main().catch(function(e){ console.error('寻宝流程出错:', e); });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+<!-- ==========================================================================
+     【素材来源与协议】—— 全部免费可商用，禁止编造付费资源或假 CDN
+     --------------------------------------------------------------------------
+     本页 3A 素材分两类，均只使用真实存在的来源，绝无捏造 CDN 地址：
+
+     1. 在线直链（外部 CDN，用绝对 https URL，不属于本地路径，故不违反相对路径约束）：
+        · Poly Haven CC0 贴图 —— 官方资产 CDN dl.polyhaven.org
+          用到：aerial_grass_rock（岩草地）、brown_mud_leaves_01（落叶泥地）。
+          作者：Poly Haven 社区（CC0 1.0，可商用）。加载失败自动降级为渐变背景。
+        · Three.js —— cdn.jsdelivr.net/npm/three@0.160.0（MIT，程序化低模远景/粒子，
+          非贴图资产）。CDN 不可达时降级到内联 CSS 星空，绝不白屏。
+
+     2. 本地可选（Kenney / Quaternius / OpenGameArt 以 ZIP 分发，无稳定直链，需下载）：
+        放入 ./assets/ 目录并相对引用（./assets/xxx.glb），逐个标注作者+协议：
+        · Kenney（kenney.nl/assets）—— CC0，低模角色/道具/UI/平台/Nature 包
+        · Quaternius（quaternius.com）—— CC0，低模动物/人物/场景 GLB/FBX
+        · OpenGameArt（opengameart.org）—— CC0 / CC-BY，注意逐个核对署名要求
+
+     主体 UI 与图标仍为手绘内联 SVG，保证离线可开、相对路径安全；
+     体量控制：模型过大时换低模版本，或先占位 SVG、再用 onload/onerror 渐进替换。
+     ========================================================================== -->
+
+<!-- ==========================================================================
+     部署到 Jing-e/web 仓库须知
+     --------------------------------------------------------------------------
+     1. 相对路径：本页本地资源（CSS/JS/图标）均为内联或 ./assets/xxx 相对引用，
+        绝无以 "/" 开头的绝对路径；3A 素材走 https:// CDN 直链（Poly Haven 贴图、
+        Three.js 库），属外部地址、非本地路径，均不写死 /web/lab2/，子路径部署不会 404。
+     2. 放置：把 index.html（及其可选的 ./assets/ 目录）push 到仓库，
+        在仓库根目录放一个空的 .nojekyll 文件（防止 Jekyll 处理下划线目录）。
+     3. 启用 Pages：仓库 Settings → Pages → Source 选「Deploy from a branch」，
+        Branch 选 main（或 gh-pages）与根目录 /。
+     4. 等待 1–2 分钟让 Pages 构建生效，访问
+        https://<用户名>.github.io/web/lab2/ 即可。
+     5. 若改了文件名或目录，记得同步更新入口相对路径，并保持「不以 / 开头」。
+     ========================================================================== -->
 </body>
 </html>
